@@ -1888,7 +1888,6 @@
             const rawId = document.getElementById('schemeModalId').value;
             const targetId = rawId || ('SCH-' + Date.now() + '-' + Math.floor(Math.random() * 1000));
             
-            // Safe DOM numeric parsing with fallbacks
             const tolMinVal = parseInt(document.getElementById('schemeModalTolMin')?.value, 10);
             const tolEarlyVal = parseInt(document.getElementById('schemeModalTolEarly')?.value, 10);
 
@@ -1914,7 +1913,6 @@
             closeTimeSchemeModal();
             showToast("Menyimpan skema waktu...");
 
-            // Optimistic Local State Update to prevent duplicate ID generation & immediate UI feedback
             const existingIdx = timeSchemesData.findIndex(s => (s.id && s.id === targetId) || s.name === newSchemeObj.name);
             if (existingIdx > -1) {
                 timeSchemesData[existingIdx] = newSchemeObj;
@@ -1937,7 +1935,6 @@
                 closeDeleteModal();
                 showToast("Menghapus skema...");
                 
-                // Optimistic local state removal
                 timeSchemesData = timeSchemesData.filter(s => (s.id !== schemeId && s.name !== schemeId));
                 refreshAllViews(false);
 
@@ -2058,6 +2055,7 @@
             refreshAllViews(false);
         }
 
+        /* ENHANCED DYNAMIC EXCEL MATRIX EXPORT */
         function exportToExcel() {
             if (typeof XLSX === 'undefined') {
                 showToast("Pustaka Excel belum siap. Silakan coba lagi.", "error");
@@ -2069,11 +2067,29 @@
                 return;
             }
 
+            // Detect target month and year from attendance logs if available, fallback to current date
             const now = new Date();
-            const year = now.getFullYear();
-            const month = now.getMonth(); // 0-based
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-            const monthName = now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+            let targetYear = now.getFullYear();
+            let targetMonth = now.getMonth(); // 0-based
+
+            if (attendanceLogs && attendanceLogs.length > 0) {
+                const sampleLog = attendanceLogs.find(l => l.date && String(l.date).includes('-'));
+                if (sampleLog) {
+                    const parts = String(sampleLog.date).split('-');
+                    if (parts.length >= 2) {
+                        const y = parseInt(parts[0], 10);
+                        const m = parseInt(parts[1], 10) - 1;
+                        if (!isNaN(y) && !isNaN(m) && m >= 0 && m <= 11) {
+                            targetYear = y;
+                            targetMonth = m;
+                        }
+                    }
+                }
+            }
+
+            const daysInMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+            const dateObjRef = new Date(targetYear, targetMonth, 1);
+            const monthName = dateObjRef.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
 
             const categories = ["GURU", "PEGAWAI", "KEAMANAN", "KEBERSIHAN"];
             const workbook = XLSX.utils.book_new();
@@ -2090,8 +2106,9 @@
                 const rows = [headers];
 
                 catEmps.forEach((emp, idx) => {
-                    const shift = shiftsData.find(s => s.id === emp.shiftId) || { days: ['Sen', 'Sel', 'Rab', 'Kam', 'Jum'] };
-                    const activeDays = Array.isArray(shift.days) ? shift.days : String(shift.days || '').split(',');
+                    const shift = shiftsData.find(s => String(s.id) === String(emp.shiftId)) || { days: ['Sen', 'Sel', 'Rab', 'Kam', 'Jum'] };
+                    const rawDays = Array.isArray(shift.days) ? shift.days : String(shift.days || 'Sen,Sel,Rab,Kam,Jum').split(',');
+                    const activeDays = rawDays.map(d => String(d).trim());
 
                     let countHadir = 0;
                     let countLate = 0;
@@ -2102,37 +2119,54 @@
                     const dayCells = [];
 
                     for (let day = 1; day <= daysInMonth; day++) {
-                        const dateObj = new Date(year, month, day);
+                        const dateObj = new Date(targetYear, targetMonth, day);
                         const dayStr = String(day).padStart(2, '0');
-                        const monthStr = String(month + 1).padStart(2, '0');
-                        const dateISO = `${year}-${monthStr}-${dayStr}`;
+                        const monthStr = String(targetMonth + 1).padStart(2, '0');
+                        const dateISO = `${targetYear}-${monthStr}-${dayStr}`;
 
                         const dayNameMap = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
                         const dayShortName = dayNameMap[dateObj.getDay()];
 
                         const isWorkingDay = activeDays.includes(dayShortName);
 
-                        const empLogs = attendanceLogs.filter(l => (l.date === dateISO || String(l.date).includes(dateISO)) && String(l.empId) === String(emp.id));
+                        // Match logs accurately using findEmployee helper
+                        const empLogs = attendanceLogs.filter(l => {
+                            const matchDate = (l.date === dateISO || String(l.date).includes(dateISO));
+                            if (!matchDate) return false;
+                            const matchedEmp = findEmployee(l.empId);
+                            return matchedEmp ? String(matchedEmp.id) === String(emp.id) : String(l.empId) === String(emp.id);
+                        });
 
                         if (empLogs.length > 0) {
-                            const firstLog = empLogs[0];
-                            let cellVal = formatTimeDisplay(firstLog.time).replace(' WITA', '');
+                            const masukLog = empLogs.find(l => l.type === 'MASUK') || empLogs[0];
+                            const pulangLog = empLogs.find(l => l.type === 'PULANG');
 
-                            if (firstLog.status === 'TERLAMBAT') {
-                                cellVal += ' (T)';
-                                countLate++;
-                                countHadir++;
-                            } else if (firstLog.status === 'PULANG CEPAT') {
-                                cellVal += ' (PC)';
-                                countEarly++;
-                                countHadir++;
-                            } else if (firstLog.status === 'IZIN' || firstLog.status === 'SAKIT') {
-                                cellVal = firstLog.status;
+                            if (masukLog.status === 'IZIN' || masukLog.status === 'SAKIT') {
+                                dayCells.push(masukLog.status);
                                 countPermission++;
                             } else {
+                                let displayVal = formatTimeDisplay(masukLog.time).replace(' WITA', '');
+                                let isLate = (masukLog.status === 'TERLAMBAT');
+                                let isEarly = false;
+
+                                if (isLate) countLate++;
+
+                                if (pulangLog) {
+                                    const outTimeStr = formatTimeDisplay(pulangLog.time).replace(' WITA', '');
+                                    displayVal += ` / ${outTimeStr}`;
+                                    if (pulangLog.status === 'PULANG CEPAT') {
+                                        isEarly = true;
+                                        countEarly++;
+                                    }
+                                }
+
+                                if (isLate && isEarly) displayVal += ' (T,PC)';
+                                else if (isLate) displayVal += ' (T)';
+                                else if (isEarly) displayVal += ' (PC)';
+
                                 countHadir++;
+                                dayCells.push(displayVal);
                             }
-                            dayCells.push(cellVal);
                         } else {
                             if (isWorkingDay) {
                                 dayCells.push('A');
