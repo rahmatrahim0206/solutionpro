@@ -1,0 +1,2120 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
+    <title>PresensiLive Pro - Dashboard</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff', 100: '#e0f2fe', 500: '#0ea5e9',
+                            600: '#0284c7', 700: '#0369a1', 900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+        .pulse-live {
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            animation: pulse-green 2s infinite;
+        }
+        @keyframes pulse-green {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="h-full flex flex-col font-sans text-slate-800 antialiased selection:bg-brand-500 selection:text-white">
+
+    <!-- HEADER NAVIGATION -->
+    <header class="bg-white/90 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-30 shadow-xs">
+        <div class="max-w-[1750px] mx-auto px-3 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between min-h-[3.75rem] py-2">
+                <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+                    <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-brand-500/20 shrink-0">
+                        <i class="fa-solid fa-fingerprint text-lg sm:text-xl"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <h1 class="font-extrabold text-slate-900 text-base sm:text-lg leading-tight tracking-tight truncate">PresensiLive <span class="text-brand-600">Pro</span></h1>
+                            <span id="bridgeStatusBadge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-emerald-100 text-emerald-700 shrink-0">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                                ONLINE
+                            </span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 mt-0.5 hidden sm:block">Integration Bridge • Absensi Realtime</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-1.5 sm:gap-3 shrink-0 ml-2">
+                    <div class="flex items-center gap-1.5 sm:gap-2 bg-slate-100/90 px-2.5 sm:px-3.5 py-1.5 rounded-xl border border-slate-200/80">
+                        <i class="fa-regular fa-clock text-brand-600 text-xs sm:text-sm shrink-0"></i>
+                        <div class="text-right leading-none">
+                            <div id="liveClock" class="font-mono font-bold text-slate-800 text-xs sm:text-sm">00:00:00 WITA</div>
+                            <div id="liveDate" class="text-[10px] text-slate-500 font-medium mt-0.5 hidden md:block">Mulai Sistem...</div>
+                        </div>
+                    </div>
+
+                    <div id="authHeaderContainer" class="shrink-0">
+                        <button id="loginHeaderBtn" onclick="openLoginModal()" title="Login Admin" class="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition-all active:scale-95 shadow-xs">
+                            <i class="fa-solid fa-lock text-xs sm:text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- NAVIGATION TABS -->
+    <nav class="bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-xs sticky top-[3.75rem] z-20">
+        <div class="max-w-[1750px] mx-auto px-3 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between py-2 overflow-x-auto no-scrollbar gap-2 snap-x">
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <button onclick="switchTab('live')" id="tabBtn-live" title="Dasbor Live Realtime" class="nav-tab-btn snap-start flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all bg-brand-600 text-white shadow-xs whitespace-nowrap">
+                        <i class="fa-solid fa-desktop text-xs sm:text-sm"></i>
+                        <span>Dasbor Live</span>
+                    </button>
+
+                    <button onclick="switchTab('log')" id="tabBtn-log" title="Log Aktivitas Realtime" class="nav-tab-btn snap-start flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-slate-100 whitespace-nowrap">
+                        <i class="fa-solid fa-list-check text-xs sm:text-sm"></i>
+                        <span>Log Realtime</span>
+                    </button>
+
+                    <button onclick="switchTab('employees')" id="tabBtn-employees" title="Data Pegawai & Guru" class="admin-only hidden nav-tab-btn snap-start flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-slate-100 whitespace-nowrap">
+                        <i class="fa-solid fa-users text-xs sm:text-sm"></i>
+                        <span>Data Guru & Pegawai</span>
+                    </button>
+
+                    <button onclick="switchTab('shifts')" id="tabBtn-shifts" title="Manajemen Shift Kerja" class="admin-only hidden nav-tab-btn snap-start flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-slate-100 whitespace-nowrap">
+                        <i class="fa-solid fa-calendar-days text-xs sm:text-sm"></i>
+                        <span>Manajemen Shift</span>
+                    </button>
+
+                    <button onclick="switchTab('settings')" id="tabBtn-settings" title="Manajemen Waktu & Aturan" class="admin-only hidden nav-tab-btn snap-start flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-slate-100 whitespace-nowrap">
+                        <i class="fa-solid fa-sliders text-xs sm:text-sm"></i>
+                        <span>Manajemen Waktu</span>
+                    </button>
+
+                    <button onclick="exportToExcel()" title="Unduh Laporan Excel (.xlsx)" class="admin-only hidden snap-start flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 whitespace-nowrap">
+                        <i class="fa-solid fa-file-excel text-xs sm:text-sm text-emerald-600"></i>
+                        <span>Unduh Excel</span>
+                    </button>
+                </div>
+
+                <div id="adminBadgeContainer" class="hidden shrink-0">
+                    <div class="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-semibold">
+                        <i class="fa-solid fa-user-shield text-amber-600 text-xs"></i>
+                        <span class="hidden sm:inline">Admin Mode</span>
+                        <button onclick="handleLogout()" title="Keluar dari Portal Admin" class="ml-0.5 p-1 hover:bg-amber-200/60 rounded-md text-amber-700 transition-colors">
+                            <i class="fa-solid fa-xmark text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="flex-1 max-w-[1750px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- TAB 1: LIVE DASHBOARD -->
+        <section id="view-live" class="tab-view space-y-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="glass-card rounded-2xl p-4 flex items-center justify-between shadow-xs">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Personel</p>
+                        <h3 id="statTotalEmp" class="text-3xl font-extrabold text-slate-900 mt-1">0</h3>
+                        <p class="text-[11px] text-slate-400 mt-0.5">Guru, Staf, Keamanan, Kebersihan</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center text-xl shrink-0">
+                        <i class="fa-solid fa-user-group"></i>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-2xl p-4 flex items-center justify-between shadow-xs">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Hadir Hari Ini</p>
+                        <h3 id="statPresentToday" class="text-3xl font-extrabold text-emerald-600 mt-1">0</h3>
+                        <p id="statPresentSub" class="text-[11px] text-emerald-600 font-medium mt-0.5">0% dari total</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl shrink-0">
+                        <i class="fa-solid fa-user-check"></i>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-2xl p-4 flex items-center justify-between shadow-xs">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Terlambat</p>
+                        <h3 id="statLateToday" class="text-3xl font-extrabold text-amber-500 mt-1">0</h3>
+                        <p class="text-[11px] text-amber-600 font-medium mt-0.5">Melewati toleransi</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center text-xl shrink-0">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-2xl p-4 flex items-center justify-between shadow-xs">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Belum Masuk</p>
+                        <h3 id="statAbsentToday" class="text-3xl font-extrabold text-rose-500 mt-1">0</h3>
+                        <p class="text-[11px] text-rose-500 font-medium mt-0.5">Belum melakukan tap</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center text-xl shrink-0">
+                        <i class="fa-solid fa-user-xmark"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 glass-card rounded-2xl p-5 shadow-xs flex flex-col h-[520px]">
+                    <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-3 h-3 rounded-full bg-emerald-500 pulse-live"></div>
+                            <h2 class="font-extrabold text-slate-900 text-base">Feed Absensi Realtime</h2>
+                        </div>
+                    </div>
+
+                    <div id="liveFeedList" class="flex-1 overflow-y-auto py-3 space-y-3 pr-1"></div>
+
+                    <div class="pt-3 border-t border-slate-100 text-center">
+                        <button onclick="switchTab('log')" class="text-xs font-bold text-brand-600 hover:text-brand-700 inline-flex items-center gap-1.5">
+                            Lihat Selengkapnya di Log Realtime <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <div class="glass-card rounded-2xl p-5 shadow-xs">
+                        <h3 class="font-bold text-slate-900 text-sm mb-3 flex items-center justify-between">
+                            <span>Komposisi Kehadiran</span>
+                            <i class="fa-solid fa-chart-pie text-slate-400"></i>
+                        </h3>
+                        <div class="relative h-48 flex items-center justify-center">
+                            <canvas id="categoryDonutChart"></canvas>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 mt-3 text-xs font-semibold">
+                            <div class="flex items-center gap-1.5 text-slate-700">
+                                <span class="w-3 h-3 rounded-md bg-brand-500 inline-block"></span> Guru
+                            </div>
+                            <div class="flex items-center gap-1.5 text-slate-700">
+                                <span class="w-3 h-3 rounded-md bg-indigo-500 inline-block"></span> Pegawai
+                            </div>
+                            <div class="flex items-center gap-1.5 text-slate-700">
+                                <span class="w-3 h-3 rounded-md bg-amber-500 inline-block"></span> Keamanan
+                            </div>
+                            <div class="flex items-center gap-1.5 text-slate-700">
+                                <span class="w-3 h-3 rounded-md bg-emerald-500 inline-block"></span> Kebersihan
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card rounded-2xl p-5 shadow-xs bg-gradient-to-br from-white to-slate-50">
+                        <h3 class="font-bold text-slate-900 text-sm mb-3 flex items-center justify-between">
+                            <span class="flex items-center gap-2"><i class="fa-solid fa-clock text-brand-600"></i> Info Aturan Jam Kerja</span>
+                            <span id="displayScheduleNameBadge" class="px-2 py-0.5 rounded bg-brand-100 text-brand-800 text-[10px] font-extrabold truncate max-w-[120px]">Utama</span>
+                        </h3>
+                        <div class="space-y-2.5 text-xs">
+                            <div class="flex items-center justify-between p-3 bg-slate-100/70 rounded-xl border border-slate-200/60">
+                                <span class="text-slate-600 font-medium flex items-center gap-2">
+                                    <i class="fa-solid fa-right-to-bracket text-emerald-600"></i> Jam Masuk
+                                </span>
+                                <span id="displayStdIn" class="font-mono font-extrabold text-slate-900 text-sm">07:30 WITA</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-slate-100/70 rounded-xl border border-slate-200/60">
+                                <span class="text-slate-600 font-medium flex items-center gap-2">
+                                    <i class="fa-solid fa-right-from-bracket text-brand-600"></i> Jam Pulang
+                                </span>
+                                <span id="displayStdOut" class="font-mono font-extrabold text-slate-900 text-sm">16:00 WITA</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: LOG REALTIME -->
+        <section id="view-log" class="tab-view hidden space-y-4">
+            <div class="glass-card rounded-2xl p-5 shadow-xs">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+                    <div>
+                        <h2 class="font-extrabold text-slate-900 text-lg">Log Riwayat Absensi Realtime</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Rekapitulasi transaksi tap sidik jari/wajah & koreksi manual lupa absensi</p>
+                    </div>
+                    <div class="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+                        <input type="text" id="logSearchInput" onkeyup="filterLogTable()" placeholder="Cari NIP / Nama..." class="px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-48">
+                        <button onclick="openManualAttendanceModal()" class="admin-only hidden px-3.5 py-2 text-xs font-bold bg-brand-600 hover:bg-brand-700 text-white rounded-xl shadow-xs shrink-0 flex items-center gap-1.5">
+                            <i class="fa-solid fa-user-pen"></i> Input / Lupa Absensi
+                        </button>
+                        <button onclick="openImportMachineModal()" class="admin-only hidden px-3.5 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs shrink-0 flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-import"></i> Tarik Data Mesin
+                        </button>
+                        <button onclick="exportToExcel()" class="admin-only hidden px-3.5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs shrink-0 flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-excel"></i> Excel
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto mt-4">
+                    <table class="w-full text-left text-xs text-slate-700">
+                        <thead class="bg-slate-100/80 text-slate-700 uppercase font-bold text-[11px] border-b border-slate-200">
+                            <tr>
+                                <th class="p-3 rounded-l-xl">Waktu Tap</th>
+                                <th class="p-3">Personel</th>
+                                <th class="p-3">NIP</th>
+                                <th class="p-3">Kategori & Jabatan</th>
+                                <th class="p-3">Tipe Tap</th>
+                                <th class="p-3">Status</th>
+                                <th class="p-3 rounded-r-xl text-right admin-only hidden">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logTableBody" class="divide-y divide-slate-100 font-medium"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: DATA EMPLOYEES -->
+        <section id="view-employees" class="tab-view hidden space-y-4">
+            <div class="glass-card rounded-2xl p-5 shadow-xs">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+                    <div>
+                        <h2 class="font-extrabold text-slate-900 text-lg">Manajemen Guru & Pegawai</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Kelola data keanggotaan, pencocokan PIN Mesin, dan penetapan shift</p>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <button onclick="openMachineMatchingModal()" class="px-3.5 py-1.5 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl transition-all flex items-center gap-1.5">
+                            <i class="fa-solid fa-fingerprint text-indigo-600"></i>
+                            <span>Pencocokan PIN Mesin</span>
+                        </button>
+                        <button onclick="setEmpCategoryFilter('ALL')" class="emp-cat-filter px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white" data-cat="ALL">Semua</button>
+                        <button onclick="setEmpCategoryFilter('GURU')" class="emp-cat-filter px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200" data-cat="GURU">Guru</button>
+                        <button onclick="setEmpCategoryFilter('PEGAWAI')" class="emp-cat-filter px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200" data-cat="PEGAWAI">Pegawai</button>
+                        <button onclick="setEmpCategoryFilter('KEAMANAN')" class="emp-cat-filter px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200" data-cat="KEAMANAN">Keamanan</button>
+                        <button onclick="setEmpCategoryFilter('KEBERSIHAN')" class="emp-cat-filter px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200" data-cat="KEBERSIHAN">Kebersihan</button>
+                        <button onclick="openEmployeeModal()" class="px-3.5 py-1.5 text-xs font-bold bg-brand-600 hover:bg-brand-700 text-white rounded-xl shadow-xs flex items-center gap-1.5">
+                            <i class="fa-solid fa-plus"></i> Tambah
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto mt-4">
+                    <table class="w-full text-left text-xs text-slate-700">
+                        <thead class="bg-slate-100/80 text-slate-700 uppercase font-bold text-[11px] border-b border-slate-200">
+                            <tr>
+                                <th class="p-3 rounded-l-xl">Personel</th>
+                                <th class="p-3">NIP / ID Mesin</th>
+                                <th class="p-3">Nama di Mesin</th>
+                                <th class="p-3">Kategori</th>
+                                <th class="p-3">Jabatan / Mapel</th>
+                                <th class="p-3">Shift Kerja</th>
+                                <th class="p-3 rounded-r-xl text-right">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="employeeTableBody" class="divide-y divide-slate-100 font-medium"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 4: SHIFTS MANAGEMENT -->
+        <section id="view-shifts" class="tab-view hidden space-y-4">
+            <div class="glass-card rounded-2xl p-5 shadow-xs">
+                <div class="flex items-center justify-between pb-4 border-b border-slate-200">
+                    <div>
+                        <h2 class="font-extrabold text-slate-900 text-lg">Manajemen Shift Kerja</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Atur jadwal jam masuk, jam pulang, dan hari aktif per kelompok shift</p>
+                    </div>
+                    <button onclick="openShiftModal()" class="px-3.5 py-2 text-xs font-bold bg-brand-600 hover:bg-brand-700 text-white rounded-xl shadow-xs flex items-center gap-1.5">
+                        <i class="fa-solid fa-plus"></i> Tambah Shift
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4" id="shiftsGrid"></div>
+            </div>
+        </section>
+
+        <!-- TAB 5: TIME SCHEMES & SETTINGS -->
+        <section id="view-settings" class="tab-view hidden space-y-6">
+            <div class="glass-card rounded-2xl p-6 shadow-xs">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+                    <div>
+                        <h2 class="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+                            <i class="fa-solid fa-clock text-brand-600"></i> Daftar Skema Waktu Kerja
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Kelola seluruh variasi skema jam kerja (Reguler, Jumat, Ramadhan, Piket, dll)</p>
+                    </div>
+                    <button onclick="openTimeSchemeModal()" class="px-4 py-2 text-xs font-bold bg-brand-600 hover:bg-brand-700 text-white rounded-xl shadow-xs flex items-center gap-1.5 shrink-0">
+                        <i class="fa-solid fa-plus"></i> Tambah Skema Waktu
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto mt-4">
+                    <table class="w-full text-left text-xs text-slate-700">
+                        <thead class="bg-slate-100/80 text-slate-700 uppercase font-bold text-[11px] border-b border-slate-200">
+                            <tr>
+                                <th class="p-3 rounded-l-xl">Nama Skema</th>
+                                <th class="p-3">Jam Masuk & Pulang</th>
+                                <th class="p-3">Toleransi (Mst / Plg)</th>
+                                <th class="p-3">Window Scan</th>
+                                <th class="p-3">Keterangan</th>
+                                <th class="p-3 rounded-r-xl text-right">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="timeSchemesTableBody" class="divide-y divide-slate-100 font-medium"></tbody>
+                    </table>
+                </div>
+
+                <div class="mt-6 pt-4 border-t border-slate-200 bg-slate-50/70 p-4 rounded-2xl">
+                    <h3 class="font-bold text-slate-800 text-xs mb-3 flex items-center gap-1.5">
+                        <i class="fa-solid fa-sliders text-brand-600"></i> Opsi Notifikasi & Tampilan Realtime
+                    </h3>
+                    <form onsubmit="handleSaveTimeRules(event)" class="space-y-3 text-xs">
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="inputAutoPopup" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                                <span class="font-semibold text-slate-700">Tampilkan Pop-up Realtime saat absensi</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="inputPlaySound" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                                <span class="font-semibold text-slate-700">Bunyikan suara lonceng (Chime)</span>
+                            </label>
+                        </div>
+                        <button type="submit" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition-all active:scale-95">
+                            Simpan Opsi Notifikasi
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- LIVE POPUP OVERLAY -->
+    <div id="livePopupOverlay" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm hidden transition-all duration-300">
+        <div id="livePopupCard" class="bg-white rounded-3xl p-6 shadow-2xl max-w-sm w-full border border-slate-100 text-center relative transform transition-all scale-90 opacity-0 overflow-hidden">
+            <div class="absolute top-0 left-0 right-0 h-1.5 bg-slate-100">
+                <div id="popupProgressBar" class="h-full bg-brand-500 w-full transition-all ease-linear"></div>
+            </div>
+
+            <div class="absolute top-3 right-3">
+                <button onclick="dismissPopup()" class="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-xs transition-colors">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="mt-4">
+                <div class="relative inline-block mx-auto mb-3">
+                    <img id="popupAvatar" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200" class="w-20 h-20 rounded-full object-cover border-4 border-white shadow-xl ring-2 ring-slate-100">
+                </div>
+            </div>
+
+            <div>
+                <span id="popupTime" class="inline-block px-3 py-1 bg-slate-100 text-slate-700 font-mono font-extrabold text-xs rounded-full mb-2">07:30 WITA</span>
+                <h3 id="popupName" class="font-black text-slate-900 text-base leading-snug truncate">Nama Personel</h3>
+                <p id="popupNip" class="text-xs text-slate-500 font-mono mt-0.5">NIP. -</p>
+                
+                <div id="popupCategory" class="mt-2 text-xs font-bold text-brand-600 uppercase tracking-wider">
+                    GURU • Pegawai
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-center" id="popupStatusContainer">
+                    <span id="popupStatusText" class="px-3.5 py-1.5 rounded-full text-xs font-extrabold flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-circle-check"></i> MASUK • HADIR
+                    </span>
+                </div>
+            </div>
+
+            <button onclick="dismissPopup()" class="mt-5 w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors">
+                Tutup (Esc)
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL MANUAL ABSENSI -->
+    <div id="manualAttendanceModal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 id="manualModalTitle" class="font-extrabold text-slate-900 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-user-pen text-brand-600"></i> Input / Edit Jam Absensi
+                </h3>
+                <button onclick="closeManualAttendanceModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <form onsubmit="handleManualAttendanceSubmit(event)" class="mt-4 space-y-3 text-xs">
+                <input type="hidden" id="manualLogOriginalKey">
+                
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Pilih Personel</label>
+                    <select id="manualEmpId" required class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 font-bold text-slate-800 bg-white">
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Tanggal Absensi</label>
+                        <input type="date" id="manualDate" required class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 font-mono font-bold">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Jam / Waktu Tap</label>
+                        <input type="time" id="manualTime" required class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 font-mono font-bold">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Tipe Tap Scan</label>
+                        <select id="manualType" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 font-semibold">
+                            <option value="MASUK">MASUK</option>
+                            <option value="PULANG">PULANG</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Status Kehadiran</label>
+                        <select id="manualStatus" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 font-semibold">
+                            <option value="HADIR">HADIR</option>
+                            <option value="TERLAMBAT">TERLAMBAT</option>
+                            <option value="PULANG CEPAT">PULANG CEPAT</option>
+                            <option value="LUPA ABSENSI">LUPA ABSENSI (KOREKSI)</option>
+                            <option value="IZIN">IZIN</option>
+                            <option value="SAKIT">SAKIT</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Catatan / Alasan Koreksi (Opsional)</label>
+                    <input type="text" id="manualNote" placeholder="Contoh: Lupa tap sidik jari / Izin dinas luar" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500">
+                </div>
+
+                <div class="pt-3 flex items-center gap-2">
+                    <button type="button" onclick="closeManualAttendanceModal()" class="w-1/2 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Batal</button>
+                    <button type="submit" class="w-1/2 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-md">Simpan Absensi</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL SKEMA WAKTU -->
+    <div id="timeSchemeModal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 id="timeSchemeModalTitle" class="font-extrabold text-slate-900 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-clock text-brand-600"></i> Tambah Skema Waktu Kerja
+                </h3>
+                <button onclick="closeTimeSchemeModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <form onsubmit="handleTimeSchemeSubmit(event)" class="mt-4 space-y-3 text-xs">
+                <input type="hidden" id="schemeModalId">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Nama Skema Waktu</label>
+                    <input type="text" id="schemeModalName" required placeholder="Contoh: Jam Kerja Reguler / Jumat / Ramadhan" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 font-bold">
+                </div>
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Jam Masuk</label>
+                        <input type="time" id="schemeModalStart" required class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 font-mono font-bold">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Jam Pulang</label>
+                        <input type="time" id="schemeModalEnd" required class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 font-mono font-bold">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Toleransi Terlambat (Menit)</label>
+                        <input type="number" id="schemeModalTolMin" min="0" max="180" value="15" required class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 font-mono font-bold text-amber-600">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Toleransi Pulang Cepat (Menit)</label>
+                        <input type="number" id="schemeModalTolEarly" min="0" max="180" value="10" required class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 font-mono font-bold text-indigo-600">
+                    </div>
+                </div>
+
+                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2">
+                    <span class="font-extrabold text-slate-800 text-[11px]">Batas Window Scan:</span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[10px] text-slate-500">Scan Masuk Mulai</label>
+                            <input type="time" id="schemeModalScanInStart" value="05:00" required class="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-mono">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-500">Scan Masuk Akhir</label>
+                            <input type="time" id="schemeModalScanInEnd" value="11:00" required class="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-mono">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-500">Scan Pulang Mulai</label>
+                            <input type="time" id="schemeModalScanOutStart" value="11:01" required class="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-mono">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-500">Scan Pulang Akhir</label>
+                            <input type="time" id="schemeModalScanOutEnd" value="20:00" required class="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-mono">
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Keterangan / Catatan</label>
+                    <input type="text" id="schemeModalDesc" placeholder="Contoh: Berlaku untuk Senin-Kamis / Khusus Hari Jumat" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500">
+                </div>
+
+                <div class="pt-3 flex items-center gap-2">
+                    <button type="button" onclick="closeTimeSchemeModal()" class="w-1/2 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Batal</button>
+                    <button type="submit" class="w-1/2 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-md">Simpan Skema</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL LOGIN ADMIN -->
+    <div id="loginModal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-100">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 class="font-extrabold text-slate-900 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-lock text-brand-600"></i> Login Admin Portal
+                </h3>
+                <button onclick="closeLoginModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <form onsubmit="handleLoginSubmit(event)" class="mt-4 space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Username</label>
+                    <input type="text" id="loginUsername" required placeholder="Masukkan username admin..." class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Password</label>
+                    <div class="relative">
+                        <input type="password" id="loginPassword" required placeholder="Masukkan password admin..." class="w-full px-3 py-2 pr-10 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500">
+                        <button type="button" onclick="togglePasswordVisibility()" title="Tampilkan/Sembunyikan Password" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none p-1">
+                            <i id="loginPasswordEye" class="fa-solid fa-eye text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="loginErrorMsg" class="hidden p-2 rounded-lg bg-rose-50 text-rose-600 font-semibold text-[11px]">
+                    Username atau password salah.
+                </div>
+                <div class="pt-2">
+                    <button type="submit" class="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-md transition-all active:scale-95">
+                        Masuk Sistem
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL SHIFT -->
+    <div id="shiftModal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-100">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 id="shiftModalTitle" class="font-extrabold text-slate-900 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-plus text-brand-600"></i> Tambah Shift Kerja
+                </h3>
+                <button onclick="closeShiftModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <form onsubmit="handleShiftSubmit(event)" class="mt-4 space-y-3 text-xs">
+                <input type="hidden" id="shiftModalId">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Nama Shift</label>
+                    <input type="text" id="shiftModalName" required placeholder="Contoh: Shift Reguler Pagi / Shift Piket Jumat" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500">
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-800 mb-1.5 flex items-center justify-between">
+                        <span>Pilih Hari Kerja Shift</span>
+                        <span class="text-[10px] text-slate-400 font-normal">Centang hari aktif</span>
+                    </label>
+                    <div class="grid grid-cols-7 gap-1 text-center" id="shiftDaysContainer">
+                        <label class="cursor-pointer">
+                            <input type="checkbox" value="Sen" class="shift-day-cb hidden peer" checked>
+                            <span class="block py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-600 peer-checked:bg-brand-600 peer-checked:text-white peer-checked:border-brand-600 transition-colors">Sen</span>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="checkbox" value="Sel" class="shift-day-cb hidden peer" checked>
+                            <span class="block py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-600 peer-checked:bg-brand-600 peer-checked:text-white peer-checked:border-brand-600 transition-colors">Sel</span>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="checkbox" value="Rab" class="shift-day-cb hidden peer" checked>
+                            <span class="block py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-600 peer-checked:bg-brand-600 peer-checked:text-white peer-checked:border-brand-600 transition-colors">Rab</span>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="checkbox" value="Kam" class="shift-day-cb hidden peer" checked>
+                            <span class="block py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-600 peer-checked:bg-brand-600 peer-checked:text-white peer-checked:border-brand-600 transition-colors">Kam</span>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="checkbox" value="Jum" class="shift-day-cb hidden peer" checked>
+                            <span class="block py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-600 peer-checked:bg-brand-600 peer-checked:text-white peer-checked:border-brand-600 transition-colors">Jum</span>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="checkbox" value="Sab" class="shift-day-cb hidden peer">
+                            <span class="block py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-600 peer-checked:bg-brand-600 peer-checked:text-white peer-checked:border-brand-600 transition-colors">Sab</span>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="checkbox" value="Min" class="shift-day-cb hidden peer">
+                            <span class="block py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-600 peer-checked:bg-brand-600 peer-checked:text-white peer-checked:border-brand-600 transition-colors">Min</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Pilih Skema Waktu Kerja</label>
+                    <select id="shiftModalScheme" onchange="onShiftSchemeChange(this.value)" required class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 font-bold text-slate-800 bg-white">
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Jam Masuk</label>
+                        <input type="time" id="shiftModalStart" required class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 font-mono font-bold">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Jam Pulang</label>
+                        <input type="time" id="shiftModalEnd" required class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 font-mono font-bold">
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Keterangan / Deskripsi</label>
+                    <input type="text" id="shiftModalDesc" placeholder="Keterangan singkat shift" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500">
+                </div>
+
+                <div class="pt-3 flex items-center gap-2">
+                    <button type="button" onclick="closeShiftModal()" class="w-1/2 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Batal</button>
+                    <button type="submit" class="w-1/2 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-md">Simpan Shift</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL EMPLOYEE -->
+    <div id="employeeModal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 id="empModalTitle" class="font-extrabold text-slate-900 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-user-plus text-brand-600"></i> Tambah Data Personel
+                </h3>
+                <button onclick="closeEmployeeModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <form onsubmit="handleEmployeeSubmit(event)" class="mt-4 space-y-3 text-xs">
+                <input type="hidden" id="empModalId">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Nama Lengkap & Gelar</label>
+                    <input type="text" id="empModalName" required placeholder="Contoh: Drs. H. Ahmad Dahlan, M.Pd" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Nama Singkat di Mesin</label>
+                    <input type="text" id="empModalMachineName" placeholder="Contoh: AHMAD" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 font-mono">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">NIP / ID Pin Mesin</label>
+                    <input type="text" id="empModalNip" required placeholder="19780312 200501 1 003" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 font-mono">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Kategori</label>
+                        <select id="empModalCat" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 font-semibold">
+                            <option value="GURU">GURU</option>
+                            <option value="PEGAWAI">PEGAWAI</option>
+                            <option value="KEAMANAN">KEAMANAN</option>
+                            <option value="KEBERSIHAN">KEBERSIHAN</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Shift Kerja</label>
+                        <select id="empModalShift" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 font-semibold"></select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Jabatan / Mapel</label>
+                    <input type="text" id="empModalRole" required placeholder="Contoh: Guru Matematika" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">URL Foto Profil (Opsional)</label>
+                    <input type="url" id="empModalPhoto" placeholder="https://images.unsplash.com/..." class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500">
+                </div>
+
+                <div class="pt-3 flex items-center gap-2">
+                    <button type="button" onclick="closeEmployeeModal()" class="w-1/2 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Batal</button>
+                    <button type="submit" class="w-1/2 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-md">Simpan Personel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL CONFIRM DELETE -->
+    <div id="confirmDeleteModal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl p-5 max-w-xs w-full shadow-2xl border border-slate-100 text-center">
+            <div class="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-xl mx-auto mb-3">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 class="font-extrabold text-slate-900 text-base">Konfirmasi Hapus</h3>
+            <p id="confirmDeleteText" class="text-xs text-slate-500 mt-1">Apakah Anda yakin ingin menghapus data ini?</p>
+            <div class="mt-4 flex gap-2">
+                <button onclick="closeDeleteModal()" class="w-1/2 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl">Batal</button>
+                <button id="execDeleteBtn" class="w-1/2 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-md">Hapus</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL MATCHING PIN MESIN -->
+    <div id="machineMatchingModal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 class="font-extrabold text-slate-900 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-link text-indigo-600"></i> Pencocokan PIN Mesin Absensi
+                </h3>
+                <button onclick="closeMachineMatchingModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="mt-4 space-y-3 text-xs">
+                <p class="text-slate-500">Berikut adalah pemetaan ID PIN Mesin Fingerprint dengan NIP Pegawai secara otomatis yang terdaftar di sistem:</p>
+                <div id="machineMatchingList" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
+                <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <span class="text-xs text-slate-500 font-medium">Total Personel: <strong id="matchModalTotalCount">0</strong></span>
+                    <button onclick="closeMachineMatchingModal()" class="px-4 py-2 bg-slate-900 text-white font-bold rounded-xl text-xs">Selesai</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL IMPORT MACHINE LOGS & STATUS BRIDGE -->
+    <div id="importMachineModal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-100">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 class="font-extrabold text-slate-900 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-file-import text-indigo-600"></i> Tarik / Impor Data Mesin
+                </h3>
+                <button onclick="closeImportMachineModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="mt-4 space-y-3 text-xs">
+                <div id="bridgeModalCard" class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                    <div>
+                        <p class="font-bold text-slate-800 flex items-center gap-1.5">
+                            <span id="bridgeDot" class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+                            <span>Status Connector Bridge:</span>
+                        </p>
+                        <p id="bridgeText" class="text-[11px] text-slate-500 mt-0.5">Memeriksa koneksi...</p>
+                    </div>
+                    <span id="bridgeBadge" class="px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-slate-200 text-slate-700">Checking</span>
+                </div>
+
+                <div class="p-3.5 bg-indigo-50 border border-indigo-200 rounded-xl text-indigo-900">
+                    <h4 class="font-bold mb-1 flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle-info text-indigo-600"></i> Panduan Penarikan Log
+                    </h4>
+                    <p class="text-[11px] leading-relaxed text-indigo-800">
+                        Untuk mentransfer data tap dari mesin ke Google Sheets:
+                    </p>
+                    <ol class="list-decimal list-inside text-[11px] mt-2 space-y-1 text-indigo-900 font-medium">
+                        <li>Jalankan aplikasi <code class="bg-indigo-100 px-1 py-0.5 rounded font-mono">x609_bridge.py</code> di PC terhubung.</li>
+                        <li>Klik tombol <strong>"▶ Mulai Bridge"</strong> atau <strong>"🔄 Sync Log Hari Ini"</strong>.</li>
+                        <li>Seluruh log absensi di memori mesin akan terunggah secara otomatis.</li>
+                    </ol>
+                </div>
+
+                <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <button onclick="loadInitialData(); showToast('Data direfresh!');" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl flex items-center gap-1.5">
+                        <i class="fa-solid fa-rotate"></i> Refresh Data
+                    </button>
+                    <button onclick="closeImportMachineModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Tutup</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST CONTAINER -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- JAVASCRIPT APP LOGIC ENGINE -->
+    <script>
+        const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxwfnQGCRTQCKJejS5R6OfHZZuMJ8E2d9GZPOdQzGp2Ad5kBVkBgh0LtyOH5hsSmkp-4g/exec";
+
+        /* GLOBAL STATE */
+        let isAdminLoggedIn = false;
+        let activeTab = 'live';
+        let categoryChart = null;
+        let popupAutoTimer = null;
+        let pollingTimer = null;
+        let lastKnownLogCount = 0;
+
+        let employeesData = [];
+        let shiftsData = [];
+        let timeSchemesData = [];
+        let bridgeStatus = { isConnected: false, lastPing: null, ip: "" };
+
+        let timeRules = { autoPopup: true, playSound: true };
+        let attendanceLogs = [];
+        let currentEmpCatFilter = 'ALL';
+
+        const ALL_DAYS = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+
+        function purgeBrowserCache() {
+            try {
+                if ('caches' in window) {
+                    caches.keys().then(names => {
+                        for (let name of names) caches.delete(name);
+                    });
+                }
+                sessionStorage.clear();
+            } catch (err) {
+                console.log("Cache purge notice:", err);
+            }
+        }
+
+        let pollingIntervalMs = 10000;
+
+        function startSmartPolling() {
+            if (pollingTimer) clearInterval(pollingTimer);
+            pollingTimer = setInterval(() => {
+                loadInitialData(true);
+            }, pollingIntervalMs);
+        }
+
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden) {
+                pollingIntervalMs = 30000;
+            } else {
+                pollingIntervalMs = 10000;
+                loadInitialData(true);
+            }
+            startSmartPolling();
+        });
+
+        window.onload = function() {
+            purgeBrowserCache();
+            startLiveClock();
+            initCharts();
+            loadInitialData();
+            startSmartPolling();
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    dismissPopup();
+                    closeTimeSchemeModal();
+                    closeManualAttendanceModal();
+                    closeEmployeeModal();
+                    closeShiftModal();
+                    closeLoginModal();
+                }
+            });
+        };
+
+        function getTodayISO() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function formatTimeDisplay(timeStr) {
+            if (!timeStr) return "00:00 WITA";
+            const cleanStr = String(timeStr).replace(/\s*WITA\s*/gi, '').trim();
+            if (cleanStr.includes('T') || cleanStr.includes('GMT') || cleanStr.length > 10) {
+                const d = new Date(cleanStr);
+                if (!isNaN(d.getTime())) {
+                    const hh = String(d.getHours()).padStart(2, '0');
+                    const mm = String(d.getMinutes()).padStart(2, '0');
+                    return `${hh}:${mm} WITA`;
+                }
+            }
+            const parts = cleanStr.split(':');
+            if (parts.length >= 2) {
+                return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')} WITA`;
+            }
+            return `${cleanStr} WITA`;
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            const isSuccess = type === 'success';
+            toast.className = `pointer-events-auto px-4 py-3 rounded-xl shadow-lg border text-xs font-bold flex items-center gap-2 transform transition-all duration-300 translate-y-2 opacity-0 ${
+                isSuccess ? 'bg-emerald-800 text-white border-emerald-700' : 'bg-rose-800 text-white border-rose-700'
+            }`;
+            toast.innerHTML = `<i class="fa-solid ${isSuccess ? 'fa-circle-check' : 'fa-circle-xmark'} text-sm"></i> <span>${message}</span>`;
+
+            container.appendChild(toast);
+            setTimeout(() => { toast.classList.remove('translate-y-2', 'opacity-0'); }, 10);
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        async function loadInitialData(isBackgroundPoll = false) {
+            if (!GOOGLE_APPS_SCRIPT_URL || GOOGLE_APPS_SCRIPT_URL.includes("GANTI_URL")) return;
+
+            try {
+                const cacheBusterUrl = GOOGLE_APPS_SCRIPT_URL + (GOOGLE_APPS_SCRIPT_URL.includes('?') ? '&' : '?') + '_t=' + Date.now();
+                const response = await fetch(cacheBusterUrl, {
+                    method: 'GET',
+                    cache: 'no-store',
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache'
+                    }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    onInitialDataLoaded(data, isBackgroundPoll);
+                }
+            } catch (err) {
+                console.warn("REST API polling notice:", err);
+            }
+        }
+
+        async function sendApiPost(payload) {
+            try {
+                const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.employees || data.attendanceLogs) {
+                        onInitialDataLoaded(data);
+                    } else {
+                        loadInitialData();
+                    }
+                    return data;
+                }
+            } catch (err) {
+                console.error("API POST error:", err);
+                showToast("Gagal menyimpan data ke server", "error");
+            }
+        }
+
+        function onInitialDataLoaded(data, isBackgroundPoll = false) {
+            if (!data) return;
+            if (data.employees) employeesData = data.employees;
+            if (data.shifts) shiftsData = data.shifts;
+            if (data.timeRules) timeRules = data.timeRules;
+            if (data.timeSchemes) timeSchemesData = data.timeSchemes;
+            if (data.bridgeStatus) {
+                bridgeStatus = data.bridgeStatus;
+                updateBridgeStatusUI();
+            }
+
+            if (data.attendanceLogs) {
+                const newLogs = data.attendanceLogs;
+                if (isBackgroundPoll && newLogs.length > lastKnownLogCount && lastKnownLogCount > 0) {
+                    const newestLog = newLogs[0];
+                    triggerLivePopup(newestLog);
+                }
+                lastKnownLogCount = newLogs.length;
+                attendanceLogs = newLogs;
+            }
+
+            refreshAllViews(isBackgroundPoll);
+        }
+
+        function updateBridgeStatusUI() {
+            const badge = document.getElementById('bridgeStatusBadge');
+            const dot = document.getElementById('bridgeDot');
+            const txt = document.getElementById('bridgeText');
+            const modalBadge = document.getElementById('bridgeBadge');
+
+            if (bridgeStatus.isConnected) {
+                if (badge) {
+                    badge.className = "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700";
+                    badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span> ONLINE`;
+                }
+                if (dot) dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 pulse-live";
+                if (txt) txt.innerHTML = `Terhubung ke Mesin (${bridgeStatus.ip || 'Local'}) • Ping: ${bridgeStatus.lastPing || 'Aktif'}`;
+                if (modalBadge) {
+                    modalBadge.className = "px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200";
+                    modalBadge.innerText = "ONLINE";
+                }
+            } else {
+                if (badge) {
+                    badge.className = "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700";
+                    badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> OFFLINE`;
+                }
+                if (dot) dot.className = "w-2.5 h-2.5 rounded-full bg-rose-500";
+                if (txt) txt.innerText = "Bridge belum terhubung / terputus";
+                if (modalBadge) {
+                    modalBadge.className = "px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-rose-100 text-rose-800 border border-rose-200";
+                    modalBadge.innerText = "OFFLINE";
+                }
+            }
+        }
+
+        function startLiveClock() {
+            const clockEl = document.getElementById('liveClock');
+            const dateEl = document.getElementById('liveDate');
+
+            function update() {
+                const now = new Date();
+                if (clockEl) clockEl.innerText = now.toLocaleTimeString('id-ID') + ' WITA';
+                if (dateEl) dateEl.innerText = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            }
+            update();
+            setInterval(update, 1000);
+        }
+
+        function switchTab(tabId) {
+            const adminOnlyTabs = ['employees', 'shifts', 'settings'];
+            if (adminOnlyTabs.includes(tabId) && !isAdminLoggedIn) {
+                openLoginModal();
+                showToast("Silakan login sebagai admin terlebih dahulu", "error");
+                return;
+            }
+
+            activeTab = tabId;
+            document.querySelectorAll('.tab-view').forEach(el => el.classList.add('hidden'));
+
+            const activeSection = document.getElementById(`view-${tabId}`);
+            if (activeSection) activeSection.classList.remove('hidden');
+
+            document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+                btn.classList.remove('bg-brand-600', 'text-white', 'shadow-xs');
+                btn.classList.add('text-slate-600', 'hover:text-slate-900', 'hover:bg-slate-100');
+            });
+
+            const activeBtn = document.getElementById(`tabBtn-${tabId}`);
+            if (activeBtn) {
+                activeBtn.classList.remove('text-slate-600', 'hover:text-slate-900', 'hover:bg-slate-100');
+                activeBtn.classList.add('bg-brand-600', 'text-white', 'shadow-xs');
+            }
+
+            refreshAllViews(false);
+        }
+
+        function findEmployee(identifier) {
+            if (!identifier) return null;
+            const searchStr = String(identifier).trim().toLowerCase();
+            return employeesData.find(e => 
+                String(e.id).toLowerCase() === searchStr || 
+                String(e.nip).replace(/\s+/g, '').toLowerCase() === searchStr.replace(/\s+/g, '') ||
+                (e.machineName && String(e.machineName).toLowerCase() === searchStr)
+            );
+        }
+
+        function triggerLivePopup(logEntry) {
+            if (!timeRules.autoPopup) return;
+            if (popupAutoTimer) { clearTimeout(popupAutoTimer); popupAutoTimer = null; }
+
+            const emp = findEmployee(logEntry.empId) || {};
+            const overlay = document.getElementById('livePopupOverlay');
+            const card = document.getElementById('livePopupCard');
+            const progressBar = document.getElementById('popupProgressBar');
+
+            const avatarEl = document.getElementById('popupAvatar');
+            if (avatarEl) avatarEl.src = emp.photo || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200';
+            
+            const nameEl = document.getElementById('popupName');
+            if (nameEl) { nameEl.innerText = emp.name || logEntry.empId; nameEl.title = emp.name || logEntry.empId; }
+
+            const nipEl = document.getElementById('popupNip');
+            if (nipEl) nipEl.innerText = `NIP: ${emp.nip || logEntry.empId}`;
+
+            const catEl = document.getElementById('popupCategory');
+            if (catEl) catEl.innerText = `${emp.category || '-'} • ${emp.role || '-'}`;
+
+            const timeEl = document.getElementById('popupTime');
+            if (timeEl) timeEl.innerText = formatTimeDisplay(logEntry.time);
+
+            const statusText = document.getElementById('popupStatusText');
+            if (statusText) {
+                if (logEntry.status === 'TERLAMBAT') {
+                    statusText.className = "px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-amber-100 text-amber-800 border border-amber-200 flex items-center justify-center gap-1.5 shadow-xs";
+                    statusText.innerHTML = `<i class="fa-solid fa-clock-rotate-left text-amber-600"></i> MASUK • TERLAMBAT`;
+                    if (progressBar) progressBar.className = "h-full bg-amber-500 w-full transition-all ease-linear";
+                } else if (logEntry.status === 'PULANG CEPAT') {
+                    statusText.className = "px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-indigo-100 text-indigo-800 border border-indigo-200 flex items-center justify-center gap-1.5 shadow-xs";
+                    statusText.innerHTML = `<i class="fa-solid fa-clock-rotate-left text-indigo-600"></i> PULANG CEPAT`;
+                    if (progressBar) progressBar.className = "h-full bg-indigo-500 w-full transition-all ease-linear";
+                } else if (logEntry.type === 'PULANG') {
+                    statusText.className = "px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-brand-100 text-brand-800 border border-brand-200 flex items-center justify-center gap-1.5 shadow-xs";
+                    statusText.innerHTML = `<i class="fa-solid fa-right-from-bracket text-brand-600"></i> PULANG`;
+                    if (progressBar) progressBar.className = "h-full bg-brand-500 w-full transition-all ease-linear";
+                } else {
+                    statusText.className = "px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center justify-center gap-1.5 shadow-xs";
+                    statusText.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600"></i> MASUK • HADIR`;
+                    if (progressBar) progressBar.className = "h-full bg-emerald-500 w-full transition-all ease-linear";
+                }
+            }
+
+            if (progressBar) { progressBar.style.transition = 'none'; progressBar.style.width = '100%'; }
+            if (timeRules.playSound) playChimeSound();
+
+            if (overlay) overlay.classList.remove('hidden');
+            setTimeout(() => {
+                if (card) { card.classList.remove('scale-90', 'opacity-0'); card.classList.add('scale-100', 'opacity-100'); }
+                if (progressBar) { progressBar.style.transition = 'width 3500ms linear'; progressBar.style.width = '0%'; }
+            }, 20);
+
+            popupAutoTimer = setTimeout(() => { dismissPopup(); }, 3500);
+        }
+
+        function dismissPopup() {
+            if (popupAutoTimer) { clearTimeout(popupAutoTimer); popupAutoTimer = null; }
+            const overlay = document.getElementById('livePopupOverlay');
+            const card = document.getElementById('livePopupCard');
+            if (!overlay || overlay.classList.contains('hidden')) return;
+
+            if (card) { card.classList.remove('scale-100', 'opacity-100'); card.classList.add('scale-90', 'opacity-0'); }
+            setTimeout(() => { overlay.classList.add('hidden'); }, 200);
+        }
+
+        function playChimeSound() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                if (ctx.state === 'suspended') ctx.resume();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.3);
+            } catch (e) { console.log("Audio playback notice:", e); }
+        }
+
+        function refreshAllViews(isBackgroundPoll = false) {
+            updateDashboardStats();
+            renderLiveFeed();
+            if (activeTab === 'log') renderActivityLogTable();
+            if (activeTab === 'employees') renderEmployeeList();
+            if (activeTab === 'shifts') renderShifts();
+            if (activeTab === 'settings') renderTimeSchemesTable();
+            fillTimeRulesForm();
+        }
+
+        function updateDashboardStats() {
+            const total = employeesData.length;
+            const totalEl = document.getElementById('statTotalEmp');
+            if (totalEl) totalEl.innerText = total;
+
+            const todayISO = getTodayISO();
+            const todayLogs = attendanceLogs.filter(l => l.date === todayISO || String(l.date).includes(todayISO));
+
+            const uniquePresent = new Set(todayLogs.map(l => l.empId)).size;
+            const lateCount = todayLogs.filter(l => l.status === 'TERLAMBAT').length;
+            const absentCount = Math.max(0, total - uniquePresent);
+
+            const presentTodayEl = document.getElementById('statPresentToday');
+            if (presentTodayEl) presentTodayEl.innerText = uniquePresent;
+
+            const pct = total > 0 ? Math.round((uniquePresent / total) * 100) : 0;
+            const presentSubEl = document.getElementById('statPresentSub');
+            if (presentSubEl) presentSubEl.innerText = `${pct}% dari total personel`;
+
+            const lateTodayEl = document.getElementById('statLateToday');
+            if (lateTodayEl) lateTodayEl.innerText = lateCount;
+
+            const absentTodayEl = document.getElementById('statAbsentToday');
+            if (absentTodayEl) absentTodayEl.innerText = absentCount;
+
+            const firstScheme = timeSchemesData[0] || { name: 'Reguler', startTime: '07:30', endTime: '16:00' };
+            const badgeEl = document.getElementById('displayScheduleNameBadge');
+            if (badgeEl) badgeEl.innerText = firstScheme.name || 'Utama';
+
+            const stdInEl = document.getElementById('displayStdIn');
+            if (stdInEl) stdInEl.innerText = `${firstScheme.startTime || '07:30'} WITA`;
+
+            const stdOutEl = document.getElementById('displayStdOut');
+            if (stdOutEl) stdOutEl.innerText = `${firstScheme.endTime || '16:00'} WITA`;
+
+            updateDonutChart();
+        }
+
+        function renderLiveFeed() {
+            const feedContainer = document.getElementById('liveFeedList');
+            if (!feedContainer) return;
+
+            if (attendanceLogs.length === 0) {
+                feedContainer.innerHTML = `
+                    <div class="text-center py-12 text-slate-400 font-medium text-xs">
+                        <i class="fa-solid fa-inbox text-3xl mb-2 text-slate-300"></i>
+                        <p>Belum ada pindaian absensi hari ini</p>
+                    </div>`;
+                return;
+            }
+
+            feedContainer.innerHTML = attendanceLogs.slice(0, 10).map(log => {
+                const emp = findEmployee(log.empId) || {};
+                const isLate = log.status === 'TERLAMBAT';
+                const isEarlyOut = log.status === 'PULANG CEPAT';
+                const isOut = log.type === 'PULANG';
+
+                let statusBadge = `<span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-700">MASUK</span>`;
+                if (isLate) statusBadge = `<span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-700">TERLAMBAT</span>`;
+                else if (isEarlyOut) statusBadge = `<span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-100 text-indigo-700">PULANG CEPAT</span>`;
+                else if (isOut) statusBadge = `<span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-brand-100 text-brand-700">PULANG</span>`;
+
+                return `
+                    <div class="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100/80 rounded-2xl border border-slate-100 transition-colors">
+                        <div class="flex items-center gap-3 min-w-0 pr-2">
+                            <img src="${emp.photo || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200'}" class="w-10 h-10 rounded-full object-cover shrink-0 border border-slate-200">
+                            <div class="min-w-0">
+                                <h4 class="font-extrabold text-xs text-slate-900 truncate" title="${emp.name || 'Personel'}">${emp.name || log.empId}</h4>
+                                <p class="text-[11px] text-slate-500 truncate">${emp.category || '-'} • ${emp.role || '-'}</p>
+                            </div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <div class="font-mono font-bold text-xs text-slate-800">${formatTimeDisplay(log.time)}</div>
+                            <div class="mt-0.5">${statusBadge}</div>
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
+        function renderActivityLogTable() {
+            const tbody = document.getElementById('logTableBody');
+            if (!tbody) return;
+
+            if (attendanceLogs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400">Belum ada data log aktivitas</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = attendanceLogs.map((log, idx) => {
+                const emp = findEmployee(log.empId) || {};
+                const isLate = log.status === 'TERLAMBAT';
+                const isEarlyOut = log.status === 'PULANG CEPAT';
+                const isOut = log.type === 'PULANG';
+
+                let badgeClass = "bg-emerald-100 text-emerald-700";
+                let statusLabel = log.status || "HADIR";
+
+                if (isLate) badgeClass = "bg-amber-100 text-amber-700";
+                else if (isEarlyOut) badgeClass = "bg-indigo-100 text-indigo-700";
+                else if (isOut) { badgeClass = "bg-brand-100 text-brand-700"; statusLabel = "PULANG"; }
+
+                const adminActionButtons = isAdminLoggedIn ? `
+                    <td class="p-3 text-right whitespace-nowrap admin-only">
+                        <button onclick="openManualAttendanceModal(${idx})" title="Edit Jam Absensi" class="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-brand-600">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </button>
+                        <button onclick="confirmDeleteLog(${idx})" title="Hapus Log Absensi" class="p-1.5 hover:bg-rose-50 rounded-lg text-slate-600 hover:text-rose-600">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                ` : `<td class="admin-only hidden"></td>`;
+
+                return `
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="p-3 font-mono text-slate-800 whitespace-nowrap">${log.date} ${formatTimeDisplay(log.time)}</td>
+                        <td class="p-3 font-bold text-slate-900 min-w-0 truncate" title="${emp.name || '-'}">${emp.name || log.empId}</td>
+                        <td class="p-3 font-mono text-slate-500 whitespace-nowrap">${emp.nip || '-'}</td>
+                        <td class="p-3 text-slate-600 whitespace-nowrap">${emp.category || '-'} - ${emp.role || '-'}</td>
+                        <td class="p-3 font-bold whitespace-nowrap">${log.type || 'MASUK'}</td>
+                        <td class="p-3 whitespace-nowrap">
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeClass}">${statusLabel}</span>
+                        </td>
+                        ${adminActionButtons}
+                    </tr>`;
+            }).join('');
+        }
+
+        function openManualAttendanceModal(logIndex = null) {
+            const modal = document.getElementById('manualAttendanceModal');
+            const empSelect = document.getElementById('manualEmpId');
+
+            if (employeesData.length > 0) {
+                const sortedEmps = [...employeesData].sort((a, b) => a.name.localeCompare(b.name));
+                empSelect.innerHTML = sortedEmps.map(e => `<option value="${e.id}">${e.name} (${e.nip || 'ID: ' + e.id})</option>`).join('');
+            } else {
+                empSelect.innerHTML = `<option value="">Belum Ada Data Personel</option>`;
+            }
+
+            if (logIndex !== null && attendanceLogs[logIndex] !== undefined) {
+                const log = attendanceLogs[logIndex];
+                document.getElementById('manualModalTitle').innerHTML = `<i class="fa-solid fa-user-pen text-brand-600"></i> Edit Log Absensi`;
+                document.getElementById('manualLogOriginalKey').value = `${log.date}|${log.time}|${log.empId}`;
+                document.getElementById('manualEmpId').value = log.empId || '';
+                document.getElementById('manualDate').value = log.date || getTodayISO();
+                
+                let formattedTime = "07:30";
+                if (log.time) {
+                    const rawT = String(log.time).replace(/\s*WITA\s*/gi, '').trim();
+                    const parts = rawT.split(':');
+                    if (parts.length >= 2) formattedTime = `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+                }
+                document.getElementById('manualTime').value = formattedTime;
+                document.getElementById('manualType').value = log.type || 'MASUK';
+                document.getElementById('manualStatus').value = log.status || 'HADIR';
+                document.getElementById('manualNote').value = log.note || '';
+            } else {
+                document.getElementById('manualModalTitle').innerHTML = `<i class="fa-solid fa-user-pen text-brand-600"></i> Input / Lupa Absensi Manual`;
+                document.getElementById('manualLogOriginalKey').value = '';
+                if (employeesData.length > 0) document.getElementById('manualEmpId').value = employeesData[0].id;
+                document.getElementById('manualDate').value = getTodayISO();
+                document.getElementById('manualTime').value = '07:30';
+                document.getElementById('manualType').value = 'MASUK';
+                document.getElementById('manualStatus').value = 'LUPA ABSENSI';
+                document.getElementById('manualNote').value = '';
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeManualAttendanceModal() {
+            document.getElementById('manualAttendanceModal').classList.add('hidden');
+        }
+
+        async function handleManualAttendanceSubmit(e) {
+            e.preventDefault();
+            const originalKey = document.getElementById('manualLogOriginalKey').value;
+            const empId = document.getElementById('manualEmpId').value;
+            if (!empId) { showToast("Pilih personel terlebih dahulu!", "error"); return; }
+
+            const timeInput = document.getElementById('manualTime').value;
+
+            const manualData = {
+                action: "saveManualAttendance",
+                originalKey: originalKey,
+                empId: empId,
+                date: document.getElementById('manualDate').value,
+                time: timeInput,
+                type: document.getElementById('manualType').value,
+                status: document.getElementById('manualStatus').value,
+                note: document.getElementById('manualNote').value || '-'
+            };
+
+            closeManualAttendanceModal();
+            showToast("Menyimpan absensi...");
+            await sendApiPost(manualData);
+            showToast("Absensi manual tersimpan!");
+        }
+
+        function confirmDeleteLog(logIndex) {
+            const log = attendanceLogs[logIndex];
+            if (!log) return;
+
+            const emp = findEmployee(log.empId) || {};
+            document.getElementById('confirmDeleteText').innerText = `Hapus log absensi ${emp.name || log.empId} tanggal ${log.date} jam ${log.time}?`;
+            
+            const btn = document.getElementById('execDeleteBtn');
+            btn.onclick = async function() {
+                closeDeleteModal();
+                showToast("Menghapus log...");
+                await sendApiPost({
+                    action: "deleteAttendanceLog",
+                    logId: { date: log.date, time: log.time, empId: log.empId }
+                });
+                showToast("Log absensi berhasil dihapus!");
+            };
+            document.getElementById('confirmDeleteModal').classList.remove('hidden');
+        }
+
+        function filterLogTable() {
+            const val = document.getElementById('logSearchInput').value.toLowerCase();
+            const rows = document.querySelectorAll('#logTableBody tr');
+            rows.forEach(r => {
+                const text = r.innerText.toLowerCase();
+                r.style.display = text.includes(val) ? '' : 'none';
+            });
+        }
+
+        function renderEmployeeList() {
+            const tbody = document.getElementById('employeeTableBody');
+            if (!tbody) return;
+
+            let filtered = employeesData;
+            if (currentEmpCatFilter !== 'ALL') {
+                filtered = employeesData.filter(e => e.category === currentEmpCatFilter);
+            }
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400">Belum ada data personel pada kategori ini</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(e => {
+                const shift = shiftsData.find(s => s.id === e.shiftId) || { name: 'Standar Reguler', startTime: '07:30', endTime: '16:00' };
+                return `
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="p-3 flex items-center gap-3">
+                            <img src="${e.photo || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200'}" class="w-8 h-8 rounded-full object-cover">
+                            <span class="font-bold text-slate-900 truncate" title="${e.name}">${e.name}</span>
+                        </td>
+                        <td class="p-3 font-mono text-slate-600">${e.nip}</td>
+                        <td class="p-3 font-mono font-bold text-slate-800">${e.machineName || e.id}</td>
+                        <td class="p-3 font-bold text-brand-600">${e.category}</td>
+                        <td class="p-3 text-slate-600">${e.role}</td>
+                        <td class="p-3">
+                            <span class="px-2 py-0.5 rounded bg-brand-50 text-brand-800 border border-brand-200 font-medium text-[10px] inline-flex items-center gap-1">
+                                <i class="fa-solid fa-clock text-brand-600"></i> ${shift.name} (${shift.startTime} - ${shift.endTime})
+                            </span>
+                        </td>
+                        <td class="p-3 text-right whitespace-nowrap">
+                            <button onclick="openEmployeeModal('${e.id}')" class="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-brand-600"><i class="fa-solid fa-pen-to-square"></i></button>
+                            <button onclick="confirmDeleteEmployee('${e.id}')" class="p-1.5 hover:bg-rose-50 rounded-lg text-slate-600 hover:text-rose-600"><i class="fa-solid fa-trash-can"></i></button>
+                        </td>
+                    </tr>`;
+            }).join('');
+        }
+
+        function setEmpCategoryFilter(cat) {
+            currentEmpCatFilter = cat;
+            document.querySelectorAll('.emp-cat-filter').forEach(btn => {
+                if (btn.dataset.cat === cat) {
+                    btn.className = "emp-cat-filter px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white";
+                } else {
+                    btn.className = "emp-cat-filter px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200";
+                }
+            });
+            renderEmployeeList();
+        }
+
+        function openEmployeeModal(empId = null) {
+            const modal = document.getElementById('employeeModal');
+            const shiftSelect = document.getElementById('empModalShift');
+
+            if (shiftsData.length > 0) {
+                shiftSelect.innerHTML = shiftsData.map(s => `<option value="${s.id}">${s.name} (${s.startTime} - ${s.endTime})</option>`).join('');
+            } else {
+                shiftSelect.innerHTML = `<option value="">Shift Default (07:30 - 16:00)</option>`;
+            }
+
+            if (empId) {
+                const emp = employeesData.find(e => e.id === empId);
+                if (!emp) return;
+                document.getElementById('empModalTitle').innerHTML = `<i class="fa-solid fa-user-pen text-brand-600"></i> Edit Data Personel`;
+                document.getElementById('empModalId').value = emp.id;
+                document.getElementById('empModalName').value = emp.name;
+                document.getElementById('empModalMachineName').value = emp.machineName || emp.name;
+                document.getElementById('empModalNip').value = emp.nip;
+                document.getElementById('empModalCat').value = emp.category || 'GURU';
+                document.getElementById('empModalShift').value = emp.shiftId || '';
+                document.getElementById('empModalRole').value = emp.role;
+                document.getElementById('empModalPhoto').value = emp.photo || '';
+            } else {
+                document.getElementById('empModalTitle').innerHTML = `<i class="fa-solid fa-user-plus text-brand-600"></i> Tambah Data Personel`;
+                document.getElementById('empModalId').value = '';
+                document.getElementById('empModalName').value = '';
+                document.getElementById('empModalMachineName').value = '';
+                document.getElementById('empModalNip').value = '';
+                document.getElementById('empModalCat').value = 'GURU';
+                document.getElementById('empModalShift').value = '';
+                document.getElementById('empModalRole').value = '';
+                document.getElementById('empModalPhoto').value = '';
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeEmployeeModal() {
+            document.getElementById('employeeModal').classList.add('hidden');
+        }
+
+        async function handleEmployeeSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('empModalId').value;
+            const empData = {
+                action: "saveEmployee",
+                employee: {
+                    id: id || ('100' + (employeesData.length + 1)),
+                    name: document.getElementById('empModalName').value,
+                    machineName: document.getElementById('empModalMachineName').value || document.getElementById('empModalName').value,
+                    nip: document.getElementById('empModalNip').value,
+                    category: document.getElementById('empModalCat').value,
+                    shiftId: document.getElementById('empModalShift').value,
+                    role: document.getElementById('empModalRole').value,
+                    photo: document.getElementById('empModalPhoto').value || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200'
+                }
+            };
+
+            closeEmployeeModal();
+            showToast("Menyimpan data personel...");
+            await sendApiPost(empData);
+            showToast("Data personel tersimpan!");
+        }
+
+        function confirmDeleteEmployee(empId) {
+            const emp = employeesData.find(e => e.id === empId);
+            if (!emp) return;
+
+            document.getElementById('confirmDeleteText').innerText = `Hapus "${emp.name}" dari daftar personel?`;
+            const btn = document.getElementById('execDeleteBtn');
+            btn.onclick = async function() {
+                closeDeleteModal();
+                showToast("Menghapus personel...");
+                await sendApiPost({ action: "deleteEmployee", empId: empId });
+                showToast("Personel dihapus!");
+            };
+            document.getElementById('confirmDeleteModal').classList.remove('hidden');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('confirmDeleteModal').classList.add('hidden');
+        }
+
+        function openMachineMatchingModal() {
+            const listEl = document.getElementById('machineMatchingList');
+            const totalEl = document.getElementById('matchModalTotalCount');
+
+            if (totalEl) totalEl.innerText = employeesData.length;
+
+            if (listEl) {
+                const sortedEmps = [...employeesData].sort((a, b) => a.name.localeCompare(b.name));
+                listEl.innerHTML = sortedEmps.map(e => `
+                    <div class="flex items-center justify-between p-2.5 hover:bg-slate-50 rounded-xl text-xs border border-slate-100 mb-1.5">
+                        <div class="min-w-0 pr-2">
+                            <span class="font-extrabold text-slate-900 block truncate">${e.name}</span>
+                            <span class="text-[10px] text-slate-500 font-mono">NIP: ${e.nip}</span>
+                        </div>
+                        <div class="text-right shrink-0 flex items-center gap-1.5">
+                            <span class="px-2 py-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg font-mono font-bold text-[10px]">
+                                <i class="fa-solid fa-microchip text-amber-600"></i> Mesin: ${e.machineName || e.id}
+                            </span>
+                            <span class="px-2 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg font-mono font-bold text-[10px]">
+                                PIN: ${e.id}
+                            </span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            document.getElementById('machineMatchingModal').classList.remove('hidden');
+        }
+
+        function closeMachineMatchingModal() {
+            document.getElementById('machineMatchingModal').classList.add('hidden');
+        }
+
+        function openImportMachineModal() {
+            const modal = document.getElementById('importMachineModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                loadInitialData();
+            }
+        }
+
+        function closeImportMachineModal() {
+            const modal = document.getElementById('importMachineModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function renderShifts() {
+            const container = document.getElementById('shiftsGrid');
+            if (!container) return;
+
+            if (shiftsData.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                        <i class="fa-solid fa-calendar-xmark text-3xl text-slate-300 mb-2"></i>
+                        <p class="font-bold text-slate-700 text-xs">Belum ada shift kerja khusus</p>
+                        <p class="text-[11px] text-slate-400 mt-0.5">Seluruh personel secara otomatis menggunakan Skema Waktu Utama.</p>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = shiftsData.map(s => {
+                const sch = timeSchemesData.find(ts => ts.name === s.schemeName) || {};
+                const tolMin = sch.toleranceMin || 15;
+                const tolEarlyOut = sch.toleranceEarlyOutMin || 10;
+                const schemeName = s.schemeName || 'Jam Kerja Reguler Utama';
+                const activeDays = Array.isArray(s.days) ? s.days : (s.days ? String(s.days).split(',') : ['Sen', 'Sel', 'Rab', 'Kam', 'Jum']);
+
+                const dayBadges = ALL_DAYS.map(day => {
+                    const isActive = activeDays.includes(day);
+                    return `<span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold ${isActive ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-400 opacity-50'}">${day}</span>`;
+                }).join('');
+
+                return `
+                <div class="glass-card rounded-2xl p-4 border border-slate-200 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+                            <div>
+                                <h4 class="font-extrabold text-slate-900 text-sm">${s.name}</h4>
+                                <span class="px-2 py-0.5 rounded bg-brand-100 text-brand-800 font-bold text-[10px] inline-flex items-center gap-1 mt-1">
+                                    <i class="fa-solid fa-tag text-brand-600"></i> ${schemeName}
+                                </span>
+                            </div>
+                            <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[10px] font-bold shrink-0">${s.id}</span>
+                        </div>
+
+                        <div class="mt-2.5 pb-2 border-b border-slate-100">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Hari Kerja Aktif:</span>
+                            <div class="flex items-center gap-1 flex-wrap">${dayBadges}</div>
+                        </div>
+
+                        <div class="mt-3 space-y-1.5 text-xs">
+                            <div class="flex justify-between"><span class="text-slate-500">Jam Masuk:</span> <span class="font-mono font-bold text-slate-800">${s.startTime} WITA</span></div>
+                            <div class="flex justify-between"><span class="text-slate-500">Toleransi Terlambat:</span> <span class="font-mono font-bold text-amber-600">+${tolMin} Mnt</span></div>
+                            <div class="flex justify-between"><span class="text-slate-500">Jam Pulang:</span> <span class="font-mono font-bold text-slate-800">${s.endTime} WITA</span></div>
+                            <div class="flex justify-between"><span class="text-slate-500">Toleransi Pulang Cepat:</span> <span class="font-mono font-bold text-indigo-600">-${tolEarlyOut} Mnt</span></div>
+                            <p class="text-[11px] text-slate-400 mt-2 bg-slate-50 p-2 rounded-lg border border-slate-100">${s.desc || '-'}</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+                        <button onclick="openShiftModal('${s.id}')" class="px-2.5 py-1 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors flex items-center gap-1">
+                            <i class="fa-solid fa-pen-to-square text-brand-600"></i> Edit
+                        </button>
+                        <button onclick="confirmDeleteShift('${s.id}')" class="px-2.5 py-1 text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition-colors flex items-center gap-1">
+                            <i class="fa-solid fa-trash-can text-rose-600"></i> Hapus
+                        </button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function openShiftModal(shiftId = null) {
+            const modal = document.getElementById('shiftModal');
+            const schemeSelect = document.getElementById('shiftModalScheme');
+
+            let schemeOptions = '';
+            if (timeSchemesData && timeSchemesData.length > 0) {
+                timeSchemesData.forEach(sch => {
+                    schemeOptions += `<option value="${sch.name}">${sch.name} (${sch.startTime} - ${sch.endTime})</option>`;
+                });
+            } else {
+                schemeOptions = `<option value="Jam Kerja Reguler Utama">Jam Kerja Reguler Utama (07:30 - 16:00)</option>`;
+            }
+            if (schemeSelect) schemeSelect.innerHTML = schemeOptions;
+
+            const dayCheckboxes = document.querySelectorAll('.shift-day-cb');
+
+            if (shiftId) {
+                const s = shiftsData.find(sh => sh.id === shiftId);
+                if (!s) return;
+                document.getElementById('shiftModalTitle').innerHTML = `<i class="fa-solid fa-pen-to-square text-brand-600"></i> Edit Shift Kerja`;
+                document.getElementById('shiftModalId').value = s.id;
+                document.getElementById('shiftModalName').value = s.name;
+                if (schemeSelect) schemeSelect.value = s.schemeName || (timeSchemesData[0] ? timeSchemesData[0].name : '');
+                document.getElementById('shiftModalStart').value = s.startTime;
+                document.getElementById('shiftModalEnd').value = s.endTime;
+                document.getElementById('shiftModalDesc').value = s.desc || '';
+
+                const activeDays = Array.isArray(s.days) ? s.days : (s.days ? String(s.days).split(',') : ['Sen', 'Sel', 'Rab', 'Kam', 'Jum']);
+                dayCheckboxes.forEach(cb => { cb.checked = activeDays.includes(cb.value); });
+            } else {
+                document.getElementById('shiftModalTitle').innerHTML = `<i class="fa-solid fa-calendar-plus text-brand-600"></i> Tambah Shift Kerja`;
+                document.getElementById('shiftModalId').value = '';
+                document.getElementById('shiftModalName').value = '';
+                const firstSch = timeSchemesData[0] || { name: 'Jam Kerja Reguler Utama', startTime: '07:30', endTime: '16:00' };
+                if (schemeSelect) schemeSelect.value = firstSch.name;
+                document.getElementById('shiftModalStart').value = firstSch.startTime;
+                document.getElementById('shiftModalEnd').value = firstSch.endTime;
+                document.getElementById('shiftModalDesc').value = '';
+
+                dayCheckboxes.forEach(cb => { cb.checked = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum'].includes(cb.value); });
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function onShiftSchemeChange(selectedSchemeName) {
+            const sch = timeSchemesData.find(s => s.name === selectedSchemeName);
+            if (sch) {
+                document.getElementById('shiftModalStart').value = sch.startTime;
+                document.getElementById('shiftModalEnd').value = sch.endTime;
+            }
+        }
+
+        function closeShiftModal() {
+            document.getElementById('shiftModal').classList.add('hidden');
+        }
+
+        async function handleShiftSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('shiftModalId').value;
+            const selectedDays = Array.from(document.querySelectorAll('.shift-day-cb:checked')).map(cb => cb.value);
+
+            if (selectedDays.length === 0) {
+                showToast("Pilih minimal 1 hari kerja!", "error");
+                return;
+            }
+
+            const shiftPayload = {
+                action: "saveShift",
+                shift: {
+                    id: id || ('SH-0' + (shiftsData.length + 1)),
+                    name: document.getElementById('shiftModalName').value,
+                    schemeName: document.getElementById('shiftModalScheme').value || 'Jam Kerja Reguler Utama',
+                    startTime: document.getElementById('shiftModalStart').value,
+                    endTime: document.getElementById('shiftModalEnd').value,
+                    desc: document.getElementById('shiftModalDesc').value || '-',
+                    days: selectedDays
+                }
+            };
+
+            closeShiftModal();
+            showToast("Menyimpan shift...");
+            await sendApiPost(shiftPayload);
+            showToast("Shift kerja tersimpan!");
+        }
+
+        function confirmDeleteShift(shiftId) {
+            const s = shiftsData.find(sh => sh.id === shiftId);
+            if (!s) return;
+
+            document.getElementById('confirmDeleteText').innerText = `Hapus "${s.name}"?`;
+            const btn = document.getElementById('execDeleteBtn');
+            btn.onclick = async function() {
+                closeDeleteModal();
+                showToast("Menghapus shift...");
+                await sendApiPost({ action: "deleteShift", shiftId: shiftId });
+                showToast("Shift berhasil dihapus!");
+            };
+            document.getElementById('confirmDeleteModal').classList.remove('hidden');
+        }
+
+        function renderTimeSchemesTable() {
+            const tbody = document.getElementById('timeSchemesTableBody');
+            if (!tbody) return;
+
+            if (timeSchemesData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-400">Belum ada skema waktu kerja yang dikonfigurasi</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = timeSchemesData.map(scheme => {
+                const scanInWindow = `${scheme.scanInStart || '05:00'} - ${scheme.scanInEnd || '11:00'}`;
+                const scanOutWindow = `${scheme.scanOutStart || '11:01'} - ${scheme.scanOutEnd || '20:00'}`;
+
+                return `
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="p-3 font-bold text-slate-900">${scheme.name}</td>
+                        <td class="p-3 font-mono font-extrabold text-slate-800">
+                            ${scheme.startTime} - ${scheme.endTime} WITA
+                        </td>
+                        <td class="p-3 font-mono text-slate-600">
+                            <span class="text-amber-600 font-bold">+${scheme.toleranceMin || 15} Mnt</span> / 
+                            <span class="text-indigo-600 font-bold">-${scheme.toleranceEarlyOutMin || 10} Mnt</span>
+                        </td>
+                        <td class="p-3 text-[11px] font-mono text-slate-500">
+                            <div><i class="fa-solid fa-right-to-bracket text-emerald-600"></i> ${scanInWindow}</div>
+                            <div><i class="fa-solid fa-right-from-bracket text-brand-600"></i> ${scanOutWindow}</div>
+                        </td>
+                        <td class="p-3 text-slate-500 text-xs">${scheme.desc || '-'}</td>
+                        <td class="p-3 text-right whitespace-nowrap">
+                            <button onclick="openTimeSchemeModal('${scheme.id || scheme.name}')" class="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-brand-600" title="Edit Skema">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            <button onclick="confirmDeleteTimeScheme('${scheme.id || scheme.name}')" class="p-1.5 hover:bg-rose-50 rounded-lg text-slate-600 hover:text-rose-600" title="Hapus Skema">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </td>
+                    </tr>`;
+            }).join('');
+        }
+
+        function openTimeSchemeModal(schemeId = null) {
+            const modal = document.getElementById('timeSchemeModal');
+            if (!modal) return;
+
+            if (schemeId) {
+                const scheme = timeSchemesData.find(s => (s.id && s.id === schemeId) || s.name === schemeId);
+                if (scheme) {
+                    document.getElementById('timeSchemeModalTitle').innerHTML = `<i class="fa-solid fa-clock text-brand-600"></i> Edit Skema Waktu Kerja`;
+                    document.getElementById('schemeModalId').value = scheme.id || scheme.name;
+                    document.getElementById('schemeModalName').value = scheme.name || '';
+                    document.getElementById('schemeModalStart').value = scheme.startTime || '07:30';
+                    document.getElementById('schemeModalEnd').value = scheme.endTime || '16:00';
+                    document.getElementById('schemeModalTolMin').value = scheme.toleranceMin ?? 15;
+                    document.getElementById('schemeModalTolEarly').value = scheme.toleranceEarlyOutMin ?? 10;
+                    document.getElementById('schemeModalScanInStart').value = scheme.scanInStart || '05:00';
+                    document.getElementById('schemeModalScanInEnd').value = scheme.scanInEnd || '11:00';
+                    document.getElementById('schemeModalScanOutStart').value = scheme.scanOutStart || '11:01';
+                    document.getElementById('schemeModalScanOutEnd').value = scheme.scanOutEnd || '20:00';
+                    document.getElementById('schemeModalDesc').value = scheme.desc || '';
+                }
+            } else {
+                document.getElementById('timeSchemeModalTitle').innerHTML = `<i class="fa-solid fa-clock text-brand-600"></i> Tambah Skema Waktu Kerja`;
+                document.getElementById('schemeModalId').value = '';
+                document.getElementById('schemeModalName').value = '';
+                document.getElementById('schemeModalStart').value = '07:30';
+                document.getElementById('schemeModalEnd').value = '16:00';
+                document.getElementById('schemeModalTolMin').value = 15;
+                document.getElementById('schemeModalTolEarly').value = 10;
+                document.getElementById('schemeModalScanInStart').value = '05:00';
+                document.getElementById('schemeModalScanInEnd').value = '11:00';
+                document.getElementById('schemeModalScanOutStart').value = '11:01';
+                document.getElementById('schemeModalScanOutEnd').value = '20:00';
+                document.getElementById('schemeModalDesc').value = '';
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeTimeSchemeModal() {
+            const modal = document.getElementById('timeSchemeModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        async function handleTimeSchemeSubmit(e) {
+            e.preventDefault();
+            const schemeData = {
+                action: "saveTimeScheme",
+                timeScheme: {
+                    id: document.getElementById('schemeModalId').value || ('TS-' + Date.now()),
+                    name: document.getElementById('schemeModalName').value,
+                    startTime: document.getElementById('schemeModalStart').value,
+                    endTime: document.getElementById('schemeModalEnd').value,
+                    toleranceMin: parseInt(document.getElementById('schemeModalTolMin').value, 10),
+                    toleranceEarlyOutMin: parseInt(document.getElementById('schemeModalTolEarly').value, 10),
+                    scanInStart: document.getElementById('schemeModalScanInStart').value,
+                    scanInEnd: document.getElementById('schemeModalScanInEnd').value,
+                    scanOutStart: document.getElementById('schemeModalScanOutStart').value,
+                    scanOutEnd: document.getElementById('schemeModalScanOutEnd').value,
+                    desc: document.getElementById('schemeModalDesc').value || '-'
+                }
+            };
+
+            closeTimeSchemeModal();
+            showToast("Menyimpan skema waktu...");
+            await sendApiPost(schemeData);
+            showToast("Skema waktu berhasil disimpan!");
+        }
+
+        function confirmDeleteTimeScheme(schemeId) {
+            const scheme = timeSchemesData.find(s => (s.id && s.id === schemeId) || s.name === schemeId);
+            const schemeName = scheme ? scheme.name : schemeId;
+
+            document.getElementById('confirmDeleteText').innerText = `Apakah Anda yakin ingin menghapus skema waktu "${schemeName}"?`;
+            const btn = document.getElementById('execDeleteBtn');
+            btn.onclick = async function() {
+                closeDeleteModal();
+                showToast("Menghapus skema...");
+                await sendApiPost({ action: "deleteTimeScheme", schemeId: schemeId });
+                showToast("Skema waktu berhasil dihapus!");
+            };
+            document.getElementById('confirmDeleteModal').classList.remove('hidden');
+        }
+
+        function fillTimeRulesForm() {
+            const autoPopupCb = document.getElementById('inputAutoPopup');
+            const playSoundCb = document.getElementById('inputPlaySound');
+
+            if (autoPopupCb) autoPopupCb.checked = !!timeRules.autoPopup;
+            if (playSoundCb) playSoundCb.checked = !!timeRules.playSound;
+        }
+
+        async function handleSaveTimeRules(e) {
+            e.preventDefault();
+            const autoPopup = document.getElementById('inputAutoPopup').checked;
+            const playSound = document.getElementById('inputPlaySound').checked;
+
+            timeRules.autoPopup = autoPopup;
+            timeRules.playSound = playSound;
+
+            showToast("Menyimpan pengaturan notifikasi...");
+            await sendApiPost({
+                action: "saveTimeRules",
+                timeRules: { autoPopup, playSound }
+            });
+            showToast("Opsi notifikasi berhasil diperbarui!");
+        }
+
+        function openLoginModal() {
+            const modal = document.getElementById('loginModal');
+            const errEl = document.getElementById('loginErrorMsg');
+            if (errEl) errEl.classList.add('hidden');
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closeLoginModal() {
+            const modal = document.getElementById('loginModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function togglePasswordVisibility() {
+            const input = document.getElementById('loginPassword');
+            const icon = document.getElementById('loginPasswordEye');
+            if (!input || !icon) return;
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+
+        function handleLoginSubmit(e) {
+            e.preventDefault();
+            const user = document.getElementById('loginUsername').value.trim();
+            const pass = document.getElementById('loginPassword').value.trim();
+
+            if (user === 'admin' && pass === 'admin123') {
+                isAdminLoggedIn = true;
+                updateAdminUIState();
+                closeLoginModal();
+                showToast("Login Admin Berhasil!");
+                
+                document.getElementById('loginUsername').value = '';
+                document.getElementById('loginPassword').value = '';
+            } else {
+                const errEl = document.getElementById('loginErrorMsg');
+                if (errEl) errEl.classList.remove('hidden');
+            }
+        }
+
+        function handleLogout() {
+            isAdminLoggedIn = false;
+            updateAdminUIState();
+            if (['employees', 'shifts', 'settings'].includes(activeTab)) {
+                switchTab('live');
+            }
+            showToast("Anda telah keluar dari Portal Admin", "error");
+        }
+
+        function updateAdminUIState() {
+            const adminElements = document.querySelectorAll('.admin-only');
+            const headerBtnContainer = document.getElementById('authHeaderContainer');
+            const badgeContainer = document.getElementById('adminBadgeContainer');
+
+            if (isAdminLoggedIn) {
+                adminElements.forEach(el => el.classList.remove('hidden'));
+                if (badgeContainer) badgeContainer.classList.remove('hidden');
+                
+                if (headerBtnContainer) {
+                    headerBtnContainer.innerHTML = `
+                        <button onclick="handleLogout()" title="Keluar dari Admin" class="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-rose-600 hover:bg-rose-700 text-white rounded-xl transition-all active:scale-95 shadow-xs">
+                            <i class="fa-solid fa-right-from-bracket text-xs sm:text-sm"></i>
+                        </button>
+                    `;
+                }
+            } else {
+                adminElements.forEach(el => el.classList.add('hidden'));
+                if (badgeContainer) badgeContainer.classList.add('hidden');
+                
+                if (headerBtnContainer) {
+                    headerBtnContainer.innerHTML = `
+                        <button id="loginHeaderBtn" onclick="openLoginModal()" title="Login Admin" class="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition-all active:scale-95 shadow-xs">
+                            <i class="fa-solid fa-lock text-xs sm:text-sm"></i>
+                        </button>
+                    `;
+                }
+            }
+            refreshAllViews(false);
+        }
+
+        /* EXPORT EXCEL HANDLER WITH CATEGORY & A-Z ALPHABETICAL SORTING */
+        function exportToExcel() {
+            if (typeof XLSX === 'undefined') {
+                showToast("Pustaka Excel belum siap. Silakan coba lagi.", "error");
+                return;
+            }
+
+            if (!attendanceLogs || attendanceLogs.length === 0) {
+                showToast("Tidak ada data absensi untuk diekspor!", "error");
+                return;
+            }
+
+            const catOrder = { "GURU": 1, "PEGAWAI": 2, "KEAMANAN": 3, "KEBERSIHAN": 4 };
+
+            const sortedLogs = [...attendanceLogs].sort((a, b) => {
+                const empA = findEmployee(a.empId) || {};
+                const empB = findEmployee(b.empId) || {};
+
+                const catA = String(empA.category || 'PEGAWAI').toUpperCase();
+                const catB = String(empB.category || 'PEGAWAI').toUpperCase();
+
+                const orderA = catOrder[catA] || 99;
+                const orderB = catOrder[catB] || 99;
+
+                if (orderA !== orderB) return orderA - orderB;
+
+                const nameA = String(empA.name || a.empId).toLowerCase();
+                const nameB = String(empB.name || b.empId).toLowerCase();
+
+                if (nameA !== nameB) return nameA.localeCompare(nameB);
+
+                return String(b.date + b.time).localeCompare(String(a.date + a.time));
+            });
+
+            const exportData = sortedLogs.map((log, idx) => {
+                const emp = findEmployee(log.empId) || {};
+                return {
+                    "No": idx + 1,
+                    "Tanggal": log.date || '-',
+                    "Waktu Tap": formatTimeDisplay(log.time),
+                    "NIP / PIN": emp.nip || log.empId,
+                    "Nama Pegawai": emp.name || log.empId,
+                    "Kategori": emp.category || '-',
+                    "Jabatan / Mapel": emp.role || '-',
+                    "Tipe Tap": log.type || 'MASUK',
+                    "Status Kehadiran": log.status || 'HADIR',
+                    "Catatan": log.note || '-'
+                };
+            });
+
+            const worksheet = XLSX.utils.json_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Log Absensi");
+
+            const today = getTodayISO();
+            XLSX.writeFile(workbook, `Rekap_Absensi_PresensiLive_${today}.xlsx`);
+            showToast("Laporan Excel berhasil diunduh!");
+        }
+
+        /* INITIAL CHART SETUP */
+        function initCharts() {
+            const ctx = document.getElementById('categoryDonutChart');
+            if (!ctx) return;
+
+            categoryChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Guru', 'Pegawai', 'Keamanan', 'Kebersihan'],
+                    datasets: [{
+                        data: [0, 0, 0, 0],
+                        backgroundColor: ['#0ea5e9', '#6366f1', '#f59e0b', '#10b981'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    cutout: '70%'
+                }
+            });
+        }
+
+        function updateDonutChart() {
+            if (!categoryChart) return;
+            const guru = employeesData.filter(e => String(e.category).toUpperCase() === 'GURU').length;
+            const pegawai = employeesData.filter(e => String(e.category).toUpperCase() === 'PEGAWAI').length;
+            const keamanan = employeesData.filter(e => String(e.category).toUpperCase() === 'KEAMANAN').length;
+            const kebersihan = employeesData.filter(e => String(e.category).toUpperCase() === 'KEBERSIHAN').length;
+
+            categoryChart.data.datasets[0].data = [guru, pegawai, keamanan, kebersihan];
+            categoryChart.update();
+        }
+    </script>
+</body>
+</html>
