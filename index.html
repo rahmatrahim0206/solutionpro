@@ -976,7 +976,7 @@
 
             try {
                 const cacheBusterUrl = GOOGLE_APPS_SCRIPT_URL + (GOOGLE_APPS_SCRIPT_URL.includes('?') ? '&' : '?') + '_t=' + Date.now();
-                const response = await fetch(cacheBusterUrl);
+                const response = await fetch(cacheBusterUrl, { method: 'GET' });
                 if (response.ok) {
                     const data = await response.json();
                     onInitialDataLoaded(data, isBackgroundPoll);
@@ -1299,7 +1299,7 @@
                 return;
             }
 
-            tbody.innerHTML = attendanceLogs.map((log, idx) => {
+            tbody.innerHTML = attendanceLogs.map((log) => {
                 const emp = findEmployee(log.empId) || {};
                 const isLate = log.status === 'TERLAMBAT';
                 const isEarlyOut = log.status === 'PULANG CEPAT';
@@ -1312,12 +1312,14 @@
                 else if (isEarlyOut) badgeClass = "bg-indigo-100 text-indigo-700";
                 else if (isOut) { badgeClass = "bg-brand-100 text-brand-700"; statusLabel = "PULANG"; }
 
+                const logKey = `${log.date}|${log.time}|${log.empId}`;
+
                 const adminActionButtons = isAdminLoggedIn ? `
                     <td class="p-3 text-right whitespace-nowrap admin-only">
-                        <button onclick="openManualAttendanceModal(${idx})" title="Edit Jam Absensi" class="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-brand-600">
+                        <button onclick="openManualAttendanceModal('${logKey}')" title="Edit Jam Absensi" class="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-brand-600">
                             <i class="fa-solid fa-pen-to-square"></i>
                         </button>
-                        <button onclick="confirmDeleteLog(${idx})" title="Hapus Log Absensi" class="p-1.5 hover:bg-rose-50 rounded-lg text-slate-600 hover:text-rose-600">
+                        <button onclick="confirmDeleteLog('${logKey}')" title="Hapus Log Absensi" class="p-1.5 hover:bg-rose-50 rounded-lg text-slate-600 hover:text-rose-600">
                             <i class="fa-solid fa-trash-can"></i>
                         </button>
                     </td>
@@ -1338,7 +1340,7 @@
             }).join('');
         }
 
-        function openManualAttendanceModal(logIndex = null) {
+        function openManualAttendanceModal(logKey = null) {
             const modal = document.getElementById('manualAttendanceModal');
             const empSelect = document.getElementById('manualEmpId');
 
@@ -1349,8 +1351,16 @@
                 empSelect.innerHTML = `<option value="">Belum Ada Data Personel</option>`;
             }
 
-            if (logIndex !== null && attendanceLogs[logIndex] !== undefined) {
-                const log = attendanceLogs[logIndex];
+            let log = null;
+            if (logKey) {
+                const parts = logKey.split('|');
+                const targetDate = parts[0];
+                const targetTime = parts[1];
+                const targetEmp = parts[2];
+                log = attendanceLogs.find(l => String(l.date) === targetDate && String(l.time) === targetTime && String(l.empId) === targetEmp);
+            }
+
+            if (log) {
                 document.getElementById('manualModalTitle').innerHTML = `<i class="fa-solid fa-user-pen text-brand-600"></i> Edit Log Absensi`;
                 document.getElementById('manualLogOriginalKey').value = `${log.date}|${log.time}|${log.empId}`;
                 document.getElementById('manualEmpId').value = log.empId || '';
@@ -1409,8 +1419,14 @@
             showToast("Absensi manual tersimpan!");
         }
 
-        function confirmDeleteLog(logIndex) {
-            const log = attendanceLogs[logIndex];
+        function confirmDeleteLog(logKey) {
+            if (!logKey) return;
+            const parts = logKey.split('|');
+            const targetDate = parts[0];
+            const targetTime = parts[1];
+            const targetEmp = parts[2];
+
+            const log = attendanceLogs.find(l => String(l.date) === targetDate && String(l.time) === targetTime && String(l.empId) === targetEmp);
             if (!log) return;
 
             const emp = findEmployee(log.empId) || {};
@@ -1803,8 +1819,8 @@
                             ${scheme.startTime} - ${scheme.endTime} WITA
                         </td>
                         <td class="p-3 font-mono text-slate-600">
-                            <span class="text-amber-600 font-bold">+${scheme.toleranceMin || 15} Mnt</span> / 
-                            <span class="text-indigo-600 font-bold">-${scheme.toleranceEarlyOutMin || 10} Mnt</span>
+                            <span class="text-amber-600 font-bold">+${scheme.toleranceMin ?? 15} Mnt</span> / 
+                            <span class="text-indigo-600 font-bold">-${scheme.toleranceEarlyOutMin ?? 10} Mnt</span>
                         </td>
                         <td class="p-3 text-[11px] font-mono text-slate-500">
                             <div><i class="fa-solid fa-right-to-bracket text-emerald-600"></i> ${scanInWindow}</div>
@@ -1828,20 +1844,20 @@
             if (!modal) return;
 
             if (schemeId) {
-                const scheme = timeSchemesData.find(s => (s.id && s.id === schemeId) || s.name === schemeId);
-                if (scheme) {
+                const sch = timeSchemesData.find(s => (s.id && s.id === schemeId) || s.name === schemeId);
+                if (sch) {
                     document.getElementById('timeSchemeModalTitle').innerHTML = `<i class="fa-solid fa-clock text-brand-600"></i> Edit Skema Waktu Kerja`;
-                    document.getElementById('schemeModalId').value = scheme.id || scheme.name;
-                    document.getElementById('schemeModalName').value = scheme.name || '';
-                    document.getElementById('schemeModalStart').value = scheme.startTime || '07:30';
-                    document.getElementById('schemeModalEnd').value = scheme.endTime || '16:00';
-                    document.getElementById('schemeModalTolMin').value = scheme.toleranceMin ?? 15;
-                    document.getElementById('schemeModalTolEarly').value = scheme.toleranceEarlyOutMin ?? 10;
-                    document.getElementById('schemeModalScanInStart').value = scheme.scanInStart || '05:00';
-                    document.getElementById('schemeModalScanInEnd').value = scheme.scanInEnd || '11:00';
-                    document.getElementById('schemeModalScanOutStart').value = scheme.scanOutStart || '11:01';
-                    document.getElementById('schemeModalScanOutEnd').value = scheme.scanOutEnd || '20:00';
-                    document.getElementById('schemeModalDesc').value = scheme.desc || '';
+                    document.getElementById('schemeModalId').value = sch.id || sch.name;
+                    document.getElementById('schemeModalName').value = sch.name || '';
+                    document.getElementById('schemeModalStart').value = sch.startTime || '07:30';
+                    document.getElementById('schemeModalEnd').value = sch.endTime || '16:00';
+                    document.getElementById('schemeModalTolMin').value = sch.toleranceMin ?? 15;
+                    document.getElementById('schemeModalTolEarly').value = sch.toleranceEarlyOutMin ?? 10;
+                    document.getElementById('schemeModalScanInStart').value = sch.scanInStart || "05:00";
+                    document.getElementById('schemeModalScanInEnd').value = sch.scanInEnd || "11:00";
+                    document.getElementById('schemeModalScanOutStart').value = sch.scanOutStart || "11:01";
+                    document.getElementById('schemeModalScanOutEnd').value = sch.scanOutEnd || "20:00";
+                    document.getElementById('schemeModalDesc').value = sch.desc || '';
                 }
             } else {
                 document.getElementById('timeSchemeModalTitle').innerHTML = `<i class="fa-solid fa-clock text-brand-600"></i> Tambah Skema Waktu Kerja`;
@@ -1868,25 +1884,45 @@
 
         async function handleTimeSchemeSubmit(e) {
             e.preventDefault();
+            
+            const rawId = document.getElementById('schemeModalId').value;
+            const targetId = rawId || ('SCH-' + Date.now() + '-' + Math.floor(Math.random() * 1000));
+            
+            // Safe DOM numeric parsing with fallbacks
+            const tolMinVal = parseInt(document.getElementById('schemeModalTolMin')?.value, 10);
+            const tolEarlyVal = parseInt(document.getElementById('schemeModalTolEarly')?.value, 10);
+
+            const newSchemeObj = {
+                id: targetId,
+                name: document.getElementById('schemeModalName').value.trim(),
+                startTime: document.getElementById('schemeModalStart').value,
+                endTime: document.getElementById('schemeModalEnd').value,
+                toleranceMin: isNaN(tolMinVal) ? 15 : tolMinVal,
+                toleranceEarlyOutMin: isNaN(tolEarlyVal) ? 10 : tolEarlyVal,
+                scanInStart: document.getElementById('schemeModalScanInStart').value,
+                scanInEnd: document.getElementById('schemeModalScanInEnd').value,
+                scanOutStart: document.getElementById('schemeModalScanOutStart').value,
+                scanOutEnd: document.getElementById('schemeModalScanOutEnd').value,
+                desc: document.getElementById('schemeModalDesc').value.trim() || '-'
+            };
+
             const schemeData = {
                 action: "saveTimeScheme",
-                timeScheme: {
-                    id: document.getElementById('schemeModalId').value || ('TS-' + Date.now()),
-                    name: document.getElementById('schemeModalName').value,
-                    startTime: document.getElementById('schemeModalStart').value,
-                    endTime: document.getElementById('schemeModalEnd').value,
-                    toleranceMin: parseInt(document.getElementById('schemeModalTolMin').value, 10),
-                    toleranceEarlyOutMin: parseInt(document.getElementById('schemeModalTolEarly').value, 10),
-                    scanInStart: document.getElementById('schemeModalScanInStart').value,
-                    scanInEnd: document.getElementById('schemeModalScanInEnd').value,
-                    scanOutStart: document.getElementById('schemeModalScanOutStart').value,
-                    scanOutEnd: document.getElementById('schemeModalScanOutEnd').value,
-                    desc: document.getElementById('schemeModalDesc').value || '-'
-                }
+                timeScheme: newSchemeObj
             };
 
             closeTimeSchemeModal();
             showToast("Menyimpan skema waktu...");
+
+            // Optimistic Local State Update to prevent duplicate ID generation & immediate UI feedback
+            const existingIdx = timeSchemesData.findIndex(s => (s.id && s.id === targetId) || s.name === newSchemeObj.name);
+            if (existingIdx > -1) {
+                timeSchemesData[existingIdx] = newSchemeObj;
+            } else {
+                timeSchemesData.push(newSchemeObj);
+            }
+            refreshAllViews(false);
+
             await sendApiPost(schemeData);
             showToast("Skema waktu berhasil disimpan!");
         }
@@ -1900,6 +1936,11 @@
             btn.onclick = async function() {
                 closeDeleteModal();
                 showToast("Menghapus skema...");
+                
+                // Optimistic local state removal
+                timeSchemesData = timeSchemesData.filter(s => (s.id !== schemeId && s.name !== schemeId));
+                refreshAllViews(false);
+
                 await sendApiPost({ action: "deleteTimeScheme", schemeId: schemeId });
                 showToast("Skema waktu berhasil dihapus!");
             };
@@ -2017,67 +2058,136 @@
             refreshAllViews(false);
         }
 
-        /* EXPORT EXCEL HANDLER WITH CATEGORY & A-Z ALPHABETICAL SORTING */
         function exportToExcel() {
             if (typeof XLSX === 'undefined') {
                 showToast("Pustaka Excel belum siap. Silakan coba lagi.", "error");
                 return;
             }
 
-            if (!attendanceLogs || attendanceLogs.length === 0) {
-                showToast("Tidak ada data absensi untuk diekspor!", "error");
+            if (!employeesData || employeesData.length === 0) {
+                showToast("Tidak ada data personel untuk diekspor!", "error");
                 return;
             }
 
-            const catOrder = { "GURU": 1, "PEGAWAI": 2, "KEAMANAN": 3, "KEBERSIHAN": 4 };
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth(); // 0-based
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const monthName = now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
 
-            // Sort attendance logs: Category Order -> Employee Name (A-Z) -> Date/Time
-            const sortedLogs = [...attendanceLogs].sort((a, b) => {
-                const empA = findEmployee(a.empId) || {};
-                const empB = findEmployee(b.empId) || {};
-
-                const catA = String(empA.category || 'PEGAWAI').toUpperCase();
-                const catB = String(empB.category || 'PEGAWAI').toUpperCase();
-
-                const orderA = catOrder[catA] || 99;
-                const orderB = catOrder[catB] || 99;
-
-                if (orderA !== orderB) return orderA - orderB;
-
-                const nameA = String(empA.name || a.empId).toLowerCase();
-                const nameB = String(empB.name || b.empId).toLowerCase();
-
-                if (nameA !== nameB) return nameA.localeCompare(nameB);
-
-                return String(b.date + b.time).localeCompare(String(a.date + a.time));
-            });
-
-            const exportData = sortedLogs.map((log, idx) => {
-                const emp = findEmployee(log.empId) || {};
-                return {
-                    "No": idx + 1,
-                    "Tanggal": log.date || '-',
-                    "Waktu Tap": formatTimeDisplay(log.time),
-                    "NIP / PIN": emp.nip || log.empId,
-                    "Nama Pegawai": emp.name || log.empId,
-                    "Kategori": emp.category || '-',
-                    "Jabatan / Mapel": emp.role || '-',
-                    "Tipe Tap": log.type || 'MASUK',
-                    "Status Kehadiran": log.status || 'HADIR',
-                    "Catatan": log.note || '-'
-                };
-            });
-
-            const worksheet = XLSX.utils.json_to_sheet(exportData);
+            const categories = ["GURU", "PEGAWAI", "KEAMANAN", "KEBERSIHAN"];
             const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Log Absensi");
 
-            const today = getTodayISO();
-            XLSX.writeFile(workbook, `Rekap_Absensi_PresensiLive_${today}.xlsx`);
-            showToast("Laporan Excel berhasil diunduh!");
+            categories.forEach(cat => {
+                const catEmps = employeesData.filter(e => String(e.category).toUpperCase() === cat.toUpperCase())
+                                              .sort((a, b) => a.name.localeCompare(b.name));
+                
+                if (catEmps.length === 0) return;
+
+                const dayHeaders = Array.from({ length: daysInMonth }, (_, i) => String(i + 1));
+                const headers = ["No", "NIP / PIN", "Nama Pegawai", "Kategori", "Jabatan", "Shift", ...dayHeaders, "Total Hadir", "Terlambat", "Plg Cepat", "Izin/Sakit", "Alpa"];
+                
+                const rows = [headers];
+
+                catEmps.forEach((emp, idx) => {
+                    const shift = shiftsData.find(s => s.id === emp.shiftId) || { days: ['Sen', 'Sel', 'Rab', 'Kam', 'Jum'] };
+                    const activeDays = Array.isArray(shift.days) ? shift.days : String(shift.days || '').split(',');
+
+                    let countHadir = 0;
+                    let countLate = 0;
+                    let countEarly = 0;
+                    let countPermission = 0;
+                    let countAbsent = 0;
+
+                    const dayCells = [];
+
+                    for (let day = 1; day <= daysInMonth; day++) {
+                        const dateObj = new Date(year, month, day);
+                        const dayStr = String(day).padStart(2, '0');
+                        const monthStr = String(month + 1).padStart(2, '0');
+                        const dateISO = `${year}-${monthStr}-${dayStr}`;
+
+                        const dayNameMap = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+                        const dayShortName = dayNameMap[dateObj.getDay()];
+
+                        const isWorkingDay = activeDays.includes(dayShortName);
+
+                        const empLogs = attendanceLogs.filter(l => (l.date === dateISO || String(l.date).includes(dateISO)) && String(l.empId) === String(emp.id));
+
+                        if (empLogs.length > 0) {
+                            const firstLog = empLogs[0];
+                            let cellVal = formatTimeDisplay(firstLog.time).replace(' WITA', '');
+
+                            if (firstLog.status === 'TERLAMBAT') {
+                                cellVal += ' (T)';
+                                countLate++;
+                                countHadir++;
+                            } else if (firstLog.status === 'PULANG CEPAT') {
+                                cellVal += ' (PC)';
+                                countEarly++;
+                                countHadir++;
+                            } else if (firstLog.status === 'IZIN' || firstLog.status === 'SAKIT') {
+                                cellVal = firstLog.status;
+                                countPermission++;
+                            } else {
+                                countHadir++;
+                            }
+                            dayCells.push(cellVal);
+                        } else {
+                            if (isWorkingDay) {
+                                dayCells.push('A');
+                                countAbsent++;
+                            } else {
+                                dayCells.push('Libur');
+                            }
+                        }
+                    }
+
+                    rows.push([
+                        idx + 1,
+                        emp.nip || emp.id,
+                        emp.name,
+                        emp.category,
+                        emp.role || '-',
+                        shift.name || 'Reguler',
+                        ...dayCells,
+                        countHadir,
+                        countLate,
+                        countEarly,
+                        countPermission,
+                        countAbsent
+                    ]);
+                });
+
+                const worksheet = XLSX.utils.aoa_to_sheet(rows);
+                XLSX.utils.book_append_sheet(workbook, worksheet, cat);
+            });
+
+            /* Detailed Log sheet */
+            if (attendanceLogs.length > 0) {
+                const logData = attendanceLogs.map((log, idx) => {
+                    const emp = findEmployee(log.empId) || {};
+                    return {
+                        "No": idx + 1,
+                        "Tanggal": log.date || '-',
+                        "Waktu Tap": formatTimeDisplay(log.time),
+                        "NIP / PIN": emp.nip || log.empId,
+                        "Nama Pegawai": emp.name || log.empId,
+                        "Kategori": emp.category || '-',
+                        "Jabatan": emp.role || '-',
+                        "Tipe Tap": log.type || 'MASUK',
+                        "Status": log.status || 'HADIR',
+                        "Catatan": log.note || '-'
+                    };
+                });
+                const logWs = XLSX.utils.json_to_sheet(logData);
+                XLSX.utils.book_append_sheet(workbook, logWs, "LOG RIWAYAT DETIL");
+            }
+
+            XLSX.writeFile(workbook, `Rekap_Absensi_Matrix_${monthName.replace(/\s+/g, '_')}.xlsx`);
+            showToast("Laporan Excel Matrix berhasil diunduh!");
         }
 
-        /* INITIAL CHART SETUP */
         function initCharts() {
             const ctx = document.getElementById('categoryDonutChart');
             if (!ctx) return;
