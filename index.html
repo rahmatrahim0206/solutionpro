@@ -862,7 +862,6 @@
         let categoryChart = null;
         let popupAutoTimer = null;
         let pollingTimer = null;
-        let lastKnownLogCount = 0;
 
         let employeesData = [];
         let shiftsData = [];
@@ -871,9 +870,16 @@
 
         let timeRules = { autoPopup: true, playSound: true };
         let attendanceLogs = [];
+        let knownLogSignatures = new Set();
+        let isFirstDataLoad = true;
         let currentEmpCatFilter = 'ALL';
 
         const ALL_DAYS = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+
+        function escapeQuotes(str) {
+            if (!str) return '';
+            return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        }
 
         function purgeBrowserCache() {
             try {
@@ -922,6 +928,7 @@
                     closeEmployeeModal();
                     closeShiftModal();
                     closeLoginModal();
+                    closeDeleteModal();
                 }
             });
         };
@@ -1028,12 +1035,23 @@
 
             if (data.attendanceLogs) {
                 const newLogs = data.attendanceLogs;
-                if (isBackgroundPoll && newLogs.length > lastKnownLogCount && lastKnownLogCount > 0) {
-                    const newestLog = newLogs[0];
-                    triggerLivePopup(newestLog);
+                if (isBackgroundPoll && !isFirstDataLoad) {
+                    // Check if there's any new log entry not seen before
+                    for (let i = 0; i < newLogs.length; i++) {
+                        const l = newLogs[i];
+                        const sig = `${l.date}_${l.time}_${l.empId}`;
+                        if (!knownLogSignatures.has(sig)) {
+                            triggerLivePopup(l);
+                            break; // Trigger popup for the newest scan
+                        }
+                    }
                 }
-                lastKnownLogCount = newLogs.length;
+
+                // Update known signature set
+                knownLogSignatures.clear();
+                newLogs.forEach(l => knownLogSignatures.add(`${l.date}_${l.time}_${l.empId}`));
                 attendanceLogs = newLogs;
+                isFirstDataLoad = false;
             }
 
             refreshAllViews(isBackgroundPoll);
@@ -1283,7 +1301,7 @@
                         <div class="flex items-center gap-3 min-w-0 pr-2">
                             <img src="${emp.photo || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200'}" class="w-10 h-10 rounded-full object-cover shrink-0 border border-slate-200">
                             <div class="min-w-0">
-                                <h4 class="font-extrabold text-xs text-slate-900 truncate" title="${emp.name || 'Personel'}">${emp.name || log.empId}</h4>
+                                <h4 class="font-extrabold text-xs text-slate-900 truncate" title="${escapeQuotes(emp.name || 'Personel')}">${emp.name || log.empId}</h4>
                                 <p class="text-[11px] text-slate-500 truncate">${emp.category || '-'} • ${emp.role || '-'}</p>
                             </div>
                         </div>
@@ -1331,7 +1349,7 @@
                 return `
                     <tr class="hover:bg-slate-50/80 transition-colors">
                         <td class="p-3 font-mono text-slate-800 whitespace-nowrap">${log.date} ${formatTimeDisplay(log.time)}</td>
-                        <td class="p-3 font-bold text-slate-900 min-w-0 truncate" title="${emp.name || '-'}">${emp.name || log.empId}</td>
+                        <td class="p-3 font-bold text-slate-900 min-w-0 truncate" title="${escapeQuotes(emp.name || '-')}">${emp.name || log.empId}</td>
                         <td class="p-3 font-mono text-slate-500 whitespace-nowrap">${emp.nip || '-'}</td>
                         <td class="p-3 text-slate-600 whitespace-nowrap">${emp.category || '-'} - ${emp.role || '-'}</td>
                         <td class="p-3 font-bold whitespace-nowrap">${log.type || 'MASUK'}</td>
@@ -1459,11 +1477,12 @@
 
             tbody.innerHTML = filtered.map(e => {
                 const shift = shiftsData.find(s => s.id === e.shiftId) || { name: 'Standar Reguler', startTime: '07:30', endTime: '16:00' };
+                const safeId = escapeQuotes(e.id);
                 return `
                     <tr class="hover:bg-slate-50/80 transition-colors">
                         <td class="p-3 flex items-center gap-3">
                             <img src="${e.photo || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200'}" class="w-8 h-8 rounded-full object-cover">
-                            <span class="font-bold text-slate-900 truncate" title="${e.name}">${e.name}</span>
+                            <span class="font-bold text-slate-900 truncate" title="${escapeQuotes(e.name)}">${e.name}</span>
                         </td>
                         <td class="p-3 font-mono text-slate-600">${e.nip}</td>
                         <td class="p-3 font-mono font-bold text-slate-800">${e.machineName || e.id}</td>
@@ -1475,8 +1494,8 @@
                             </span>
                         </td>
                         <td class="p-3 text-right whitespace-nowrap">
-                            <button onclick="openEmployeeModal('${e.id}')" class="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-brand-600"><i class="fa-solid fa-pen-to-square"></i></button>
-                            <button onclick="confirmDeleteEmployee('${e.id}')" class="p-1.5 hover:bg-rose-50 rounded-lg text-slate-600 hover:text-rose-600"><i class="fa-solid fa-trash-can"></i></button>
+                            <button onclick="openEmployeeModal('${safeId}')" class="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-brand-600"><i class="fa-solid fa-pen-to-square"></i></button>
+                            <button onclick="confirmDeleteEmployee('${safeId}')" class="p-1.5 hover:bg-rose-50 rounded-lg text-slate-600 hover:text-rose-600"><i class="fa-solid fa-trash-can"></i></button>
                         </td>
                     </tr>`;
             }).join('');
@@ -1505,7 +1524,7 @@
             }
 
             if (empId) {
-                const emp = employeesData.find(e => e.id === empId);
+                const emp = employeesData.find(e => String(e.id) === String(empId));
                 if (!emp) return;
                 document.getElementById('empModalTitle').innerHTML = `<i class="fa-solid fa-user-pen text-brand-600"></i> Edit Data Personel`;
                 document.getElementById('empModalId').value = emp.id;
@@ -1559,7 +1578,7 @@
         }
 
         function confirmDeleteEmployee(empId) {
-            const emp = employeesData.find(e => e.id === empId);
+            const emp = employeesData.find(e => String(e.id) === String(empId));
             if (!emp) return;
 
             document.getElementById('confirmDeleteText').innerText = `Hapus "${emp.name}" dari daftar personel?`;
@@ -1574,6 +1593,8 @@
         }
 
         function closeDeleteModal() {
+            const btn = document.getElementById('execDeleteBtn');
+            if (btn) btn.onclick = null;
             document.getElementById('confirmDeleteModal').classList.add('hidden');
         }
 
@@ -1639,10 +1660,11 @@
 
             container.innerHTML = shiftsData.map(s => {
                 const sch = timeSchemesData.find(ts => ts.name === s.schemeName) || {};
-                const tolMin = sch.toleranceMin || 15;
-                const tolEarlyOut = sch.toleranceEarlyOutMin || 10;
+                const tolMin = sch.toleranceMin ?? 15;
+                const tolEarlyOut = sch.toleranceEarlyOutMin ?? 10;
                 const schemeName = s.schemeName || 'Jam Kerja Reguler Utama';
                 const activeDays = Array.isArray(s.days) ? s.days : (s.days ? String(s.days).split(',') : ['Sen', 'Sel', 'Rab', 'Kam', 'Jum']);
+                const safeShiftId = escapeQuotes(s.id);
 
                 const dayBadges = ALL_DAYS.map(day => {
                     const isActive = activeDays.includes(day);
@@ -1676,10 +1698,10 @@
                         </div>
                     </div>
                     <div class="mt-4 pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
-                        <button onclick="openShiftModal('${s.id}')" class="px-2.5 py-1 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors flex items-center gap-1">
+                        <button onclick="openShiftModal('${safeShiftId}')" class="px-2.5 py-1 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors flex items-center gap-1">
                             <i class="fa-solid fa-pen-to-square text-brand-600"></i> Edit
                         </button>
-                        <button onclick="confirmDeleteShift('${s.id}')" class="px-2.5 py-1 text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition-colors flex items-center gap-1">
+                        <button onclick="confirmDeleteShift('${safeShiftId}')" class="px-2.5 py-1 text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition-colors flex items-center gap-1">
                             <i class="fa-solid fa-trash-can text-rose-600"></i> Hapus
                         </button>
                     </div>
@@ -1694,7 +1716,7 @@
             let schemeOptions = '';
             if (timeSchemesData && timeSchemesData.length > 0) {
                 timeSchemesData.forEach(sch => {
-                    schemeOptions += `<option value="${sch.name}">${sch.name} (${sch.startTime} - ${sch.endTime})</option>`;
+                    schemeOptions += `<option value="${escapeQuotes(sch.name)}">${sch.name} (${sch.startTime} - ${sch.endTime})</option>`;
                 });
             } else {
                 schemeOptions = `<option value="Jam Kerja Reguler Utama">Jam Kerja Reguler Utama (07:30 - 16:00)</option>`;
@@ -1704,7 +1726,7 @@
             const dayCheckboxes = document.querySelectorAll('.shift-day-cb');
 
             if (shiftId) {
-                const s = shiftsData.find(sh => sh.id === shiftId);
+                const s = shiftsData.find(sh => String(sh.id) === String(shiftId));
                 if (!s) return;
                 document.getElementById('shiftModalTitle').innerHTML = `<i class="fa-solid fa-pen-to-square text-brand-600"></i> Edit Shift Kerja`;
                 document.getElementById('shiftModalId').value = s.id;
@@ -1774,7 +1796,7 @@
         }
 
         function confirmDeleteShift(shiftId) {
-            const s = shiftsData.find(sh => sh.id === shiftId);
+            const s = shiftsData.find(sh => String(sh.id) === String(shiftId));
             if (!s) return;
 
             document.getElementById('confirmDeleteText').innerText = `Hapus "${s.name}"?`;
@@ -1800,6 +1822,7 @@
             tbody.innerHTML = timeSchemesData.map(scheme => {
                 const scanInWindow = `${scheme.scanInStart || '05:00'} - ${scheme.scanInEnd || '11:00'}`;
                 const scanOutWindow = `${scheme.scanOutStart || '11:01'} - ${scheme.scanOutEnd || '20:00'}`;
+                const safeSchemeId = escapeQuotes(scheme.id || scheme.name);
 
                 return `
                     <tr class="hover:bg-slate-50/80 transition-colors">
@@ -1808,8 +1831,8 @@
                             ${scheme.startTime} - ${scheme.endTime} WITA
                         </td>
                         <td class="p-3 font-mono text-slate-600">
-                            <span class="text-amber-600 font-bold">+${scheme.toleranceMin || 15} Mnt</span> / 
-                            <span class="text-indigo-600 font-bold">-${scheme.toleranceEarlyOutMin || 10} Mnt</span>
+                            <span class="text-amber-600 font-bold">+${scheme.toleranceMin ?? 15} Mnt</span> / 
+                            <span class="text-indigo-600 font-bold">-${scheme.toleranceEarlyOutMin ?? 10} Mnt</span>
                         </td>
                         <td class="p-3 text-[11px] font-mono text-slate-500">
                             <div><i class="fa-solid fa-right-to-bracket text-emerald-600"></i> ${scanInWindow}</div>
@@ -1817,10 +1840,10 @@
                         </td>
                         <td class="p-3 text-slate-500 text-xs">${scheme.desc || '-'}</td>
                         <td class="p-3 text-right whitespace-nowrap">
-                            <button onclick="openTimeSchemeModal('${scheme.id || scheme.name}')" class="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-brand-600" title="Edit Skema">
+                            <button onclick="openTimeSchemeModal('${safeSchemeId}')" class="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-brand-600" title="Edit Skema">
                                 <i class="fa-solid fa-pen-to-square"></i>
                             </button>
-                            <button onclick="confirmDeleteTimeScheme('${scheme.id || scheme.name}')" class="p-1.5 hover:bg-rose-50 rounded-lg text-slate-600 hover:text-rose-600" title="Hapus Skema">
+                            <button onclick="confirmDeleteTimeScheme('${safeSchemeId}')" class="p-1.5 hover:bg-rose-50 rounded-lg text-slate-600 hover:text-rose-600" title="Hapus Skema">
                                 <i class="fa-solid fa-trash-can"></i>
                             </button>
                         </td>
@@ -1833,7 +1856,7 @@
             if (!modal) return;
 
             if (schemeId) {
-                const scheme = timeSchemesData.find(s => (s.id && s.id === schemeId) || s.name === schemeId);
+                const scheme = timeSchemesData.find(s => (s.id && String(s.id) === String(schemeId)) || s.name === schemeId);
                 if (scheme) {
                     document.getElementById('timeSchemeModalTitle').innerHTML = `<i class="fa-solid fa-clock text-brand-600"></i> Edit Skema Waktu Kerja`;
                     document.getElementById('schemeModalId').value = scheme.id || scheme.name;
@@ -1897,7 +1920,7 @@
         }
 
         function confirmDeleteTimeScheme(schemeId) {
-            const scheme = timeSchemesData.find(s => (s.id && s.id === schemeId) || s.name === schemeId);
+            const scheme = timeSchemesData.find(s => (s.id && String(s.id) === String(schemeId)) || s.name === schemeId);
             const schemeName = scheme ? scheme.name : schemeId;
 
             document.getElementById('confirmDeleteText').innerText = `Apakah Anda yakin ingin menghapus skema waktu "${schemeName}"?`;
